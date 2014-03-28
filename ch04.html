@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="more" data-pdf-bookmark="Chapter 4. More Estimation"><h1>More Estimation</h1><section data-type="sect1" id="euro" data-pdf-bookmark="The Euro problem"><h1>The Euro problem</h1><p><a data-type="indexterm" data-primary="Euro problem" id="idp1257344"/><a data-type="indexterm" data-primary="MacKay, David" id="idp1257952"/>In <em>Information Theory, Inference, and Learning
+    Algorithms</em>, David MacKay poses this problem:</p><blockquote><p>A statistical statement appeared in “The Guardian” on Friday
+      January 4, 2002:</p><blockquote><p>When spun on edge 250 times, a Belgian one-euro coin came up
+        heads 140 times and tails 110. ‘It looks very suspicious to me,’ said
+        Barry Blight, a statistics lecturer at the London School of Economics.
+        ‘If the coin were unbiased, the chance of getting a result as extreme
+        as that would be less than 7%.’</p></blockquote><p>But do these data give evidence that the coin is biased rather
+      than fair?</p></blockquote><p>To answer that question, we’ll proceed in two steps. The first is to
+    estimate the probability that the coin lands face up. The second is to
+    evaluate whether the data support the hypothesis that the coin is
+    biased.</p><p>You can download the code in this section from <a href="http://thinkbayes.com/euro.py" class="orm:hideurl">http://thinkbayes.com/euro.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p><p>Any given coin has some probability, <em>x</em>, of landing heads up when spun on edge. It seems
+    reasonable to believe that the value of <em>x</em>
+    depends on some physical characteristics of the coin, primarily the
+    distribution of weight.</p><p>If a coin is perfectly balanced, we expect <em>x</em> to be close to 50%, but for a lopsided coin,
+    <em>x</em> might be substantially different. We
+    can use Bayes’s theorem and the observed data to estimate <em>x</em>.</p><p>Let’s define 101 hypotheses, where <em>H<sub>x</sub></em> is the hypothesis that
+    the probability of heads is <em>x</em>%, for
+    values from 0 to 100. I’ll start with a uniform prior where the
+    probability of <em>H<sub>x</sub></em>
+    is the same for all <em>x</em>. We’ll come back
+    later to consider other priors.<a data-type="indexterm" data-primary="uniform distribution" id="idp1272624"/></p><p>The likelihood function is relatively easy: If <em>H<sub>x</sub></em> is true, the probability
+    of heads is <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>x</mml:mi>
+
+            <mml:mo>/</mml:mo>
+
+            <mml:mn>100</mml:mn>
+          </mml:mrow>
+        </math> and the probability of tails is <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mn>1</mml:mn>
+
+            <mml:mo>-</mml:mo>
+
+            <mml:mi>x</mml:mi>
+
+            <mml:mo>/</mml:mo>
+
+            <mml:mn>100</mml:mn>
+          </mml:mrow>
+        </math>.</p><pre data-type="programlisting">class Euro(Suite):
+
+    def Likelihood(self, data, hypo):
+        x = hypo
+        if data == 'H':
+            return x/100.0
+        else:
+            return 1 - x/100.0</pre><p>Here’s the code that makes the suite and updates it:</p><pre data-type="programlisting">    suite = Euro(xrange(0, 101))
+    dataset = 'H' * 140 + 'T' * 110
+
+    for data in dataset:
+        suite.Update(data)</pre><p>The result is in <a data-type="xref" href="#fig.euro1">Figure 4-1</a>.</p><figure id="fig.euro1" style="float: none"><img src="images/thba_0401.png"/><figcaption>Posterior distribution for the Euro problem on a uniform
+      prior.</figcaption></figure></section><section data-type="sect1" id="a0000001621" data-pdf-bookmark="Summarizing the posterior"><h1>Summarizing the posterior</h1><p>Again, there are several ways to summarize the posterior
+    distribution. One option is to find the most likely value in the posterior
+    distribution. <code>thinkbayes</code>
+    provides a function that does that:<a data-type="indexterm" data-primary="posterior distribution" id="idp1285600"/><a data-type="indexterm" data-primary="maximum likelihood" id="idp1286208"/></p><pre data-type="programlisting">def MaximumLikelihood(pmf):
+    """Returns the value with the highest probability."""
+    prob, val = max((prob, val) for val, prob in pmf.Items())
+    return val</pre><p>In this case the result is 56, which is also the observed percentage
+    of heads, <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mn>140</mml:mn>
+
+            <mml:mo>/</mml:mo>
+
+            <mml:mn>250</mml:mn>
+
+            <mml:mo>=</mml:mo>
+
+            <mml:mn>0</mml:mn>
+
+            <mml:mo>.</mml:mo>
+
+            <mml:mn>56</mml:mn>
+
+            <mml:mo>%</mml:mo>
+          </mml:mrow>
+        </math>. So that suggests (correctly) that the observed
+    percentage is the maximum likelihood estimator for the population.</p><p>We might also summarize the posterior by computing the mean and
+    median:<a data-type="indexterm" data-primary="median" id="idp1293696"/></p><pre data-type="programlisting">    print 'Mean', suite.Mean()
+    print 'Median', thinkbayes.Percentile(suite, 50)</pre><p>The mean is 55.95; the median is 56. Finally, we can compute a
+    credible interval:</p><pre data-type="programlisting">    print 'CI', thinkbayes.CredibleInterval(suite, 90)</pre><p>The result is <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mo>(</mml:mo>
+
+            <mml:mn>51</mml:mn>
+
+            <mml:mo>,</mml:mo>
+
+            <mml:mn>61</mml:mn>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math>.</p><p>Now, getting back to the original question, we would like to know
+    whether the coin is fair. We observe that the posterior credible interval
+    does not include 50%, which suggests that the coin is not fair.</p><p>But that is not exactly the question we started with. MacKay asked,
+    “ Do these data give evidence that the coin is biased rather than fair?”
+    To answer that question, we will have to be more precise about what it
+    means to say that data constitute evidence for a hypothesis. And that is
+    the subject of the next chapter.<a data-type="indexterm" data-primary="evidence" id="idp1302768"/></p><p>But before we go on, I want to address one possible source of
+    confusion. Since we want to know whether the coin is fair, it might be
+    tempting to ask for the probability that <code>x</code> is 50%:</p><pre data-type="programlisting">    print suite.Prob(50)</pre><p>The result is 0.021, but that value is almost meaningless. The
+    decision to evaluate 101 hypotheses was arbitrary; we could have divided
+    the range into more or fewer pieces, and if we had, the probability for
+    any given hypothesis would be greater or less.</p></section><section data-type="sect1" id="triangle" data-pdf-bookmark="Swamping the priors"><h1>Swamping the priors</h1><p>We started with a uniform prior, but that might not be a good
+    choice. I can believe that if a coin is lopsided, <em>x</em> might deviate substantially from 50%, but it
+    seems unlikely that the Belgian Euro coin is so imbalanced that <em>x</em> is 10% or 90%.</p><p>It might be more reasonable to choose a prior that gives higher
+    probability to values of <em>x</em> near 50% and
+    lower probability to extreme values.</p><p>As an example, I constructed a triangular prior, shown in <a data-type="xref" href="#fig.euro2">Figure 4-2</a>. Here’s the code that constructs the prior:</p><pre data-type="programlisting">def TrianglePrior():
+    suite = Euro()
+    for x in range(0, 51):
+        suite.Set(x, x)
+    for x in range(51, 101):
+        suite.Set(x, 100-x) 
+    suite.Normalize()</pre><figure id="fig.euro2" style="float: none"><img src="images/thba_0402.png"/><figcaption>Uniform and triangular priors for the Euro problem.</figcaption></figure><p><a data-type="xref" href="#fig.euro2">Figure 4-2</a> shows the result (and the uniform prior
+    for comparison). Updating this prior with the same dataset yields the
+    posterior distribution shown in <a data-type="xref" href="#fig.euro3">Figure 4-3</a>. Even with
+    substantially different priors, the posterior distributions are very
+    similar. The medians and the credible intervals are identical; the means
+    differ by less than 0.5%.<a data-type="indexterm" data-primary="triangle distribution" id="idp1312160"/></p><figure id="fig.euro3" style="float: True"><img src="images/thba_0403.png"/><figcaption>Posterior distributions for the Euro problem.</figcaption></figure><p>This is an example of <strong>swamping the
+    priors</strong>: with enough data, people who start with different
+    priors will tend to converge on the same posterior.<a data-type="indexterm" data-primary="swamping the priors" id="idp1312720"/><a data-type="indexterm" data-primary="convergence" id="idp1313104"/></p></section><section data-type="sect1" id="a0000001692" data-pdf-bookmark="Optimization"><h1>Optimization</h1><p>The code I have shown so far is meant to be easy to read, but it is
+    not very efficient. In general, I like to develop code that is
+    demonstrably correct, then check whether it is fast enough for my
+    purposes. If so, there is no need to optimize. For this example, if we
+    care about run time, there are several ways we can speed it up.<a data-type="indexterm" data-primary="optimization" id="idp1315152"/></p><p>The first opportunity is to reduce the number of times we normalize
+    the suite. In the original code, we call <code>Update</code> once for each spin.</p><pre data-type="programlisting">    dataset = 'H' * heads + 'T' * tails
+
+    for data in dataset:
+        suite.Update(data)</pre><p>And here’s what <code>Update</code> looks like:</p><pre data-type="programlisting">    def Update(self, data):
+        for hypo in self.Values():
+            like = self.Likelihood(data, hypo)
+            self.Mult(hypo, like)
+        return self.Normalize()</pre><p>Each update iterates through the hypotheses, then calls <code>Normalize</code>, which iterates through
+    the hypotheses again. We can save some time by doing all of the updates
+    before normalizing.</p><p><code>Suite</code> provides a
+    method called <code>UpdateSet</code>
+    that does exactly that. Here it is:</p><pre data-type="programlisting">    def UpdateSet(self, dataset):
+        for data in dataset:
+            for hypo in self.Values():
+                like = self.Likelihood(data, hypo)
+                self.Mult(hypo, like)
+        return self.Normalize()</pre><p>And here’s how we can invoke it:</p><pre data-type="programlisting">    dataset = 'H' * heads + 'T' * tails
+    suite.UpdateSet(dataset)</pre><p>This optimization speeds things up, but the run time is still
+    proportional to the amount of data. We can speed things up even more by
+    rewriting <code>Likelihood</code> to
+    process the entire dataset, rather than one spin at a time.</p><p>In the original version, <code>data</code> is a string that encodes either heads or
+    tails:</p><pre data-type="programlisting">    def Likelihood(self, data, hypo):
+        x = hypo / 100.0
+        if data == 'H':
+            return x
+        else:
+            return 1-x</pre><p>As an alternative, we could encode the dataset as a tuple of two
+    integers: the number of heads and tails. In that case <code>Likelihood</code> looks like
+    this:<a data-type="indexterm" data-primary="tuple" id="idp1325504"/></p><pre data-type="programlisting">    def Likelihood(self, data, hypo):
+        x = hypo / 100.0
+        heads, tails = data
+        like = x**heads * (1-x)**tails
+        return like</pre><p>And then we can call <code>Update</code> like this:</p><pre data-type="programlisting">    heads, tails = 140, 110
+    suite.Update((heads, tails))</pre><p>Since we have replaced repeated multiplication with exponentiation,
+    this version takes the same time for any number of spins.</p></section><section data-type="sect1" id="beta" data-pdf-bookmark="The beta distribution"><h1>The beta distribution</h1><p><a data-type="indexterm" data-primary="beta distribution" id="idp1331200"/>There is one more optimization that solves this problem even
+    faster.</p><p>So far we have used a Pmf object to represent a discrete set of
+    values for <code>x</code>. Now we will use a
+    continuous distribution, specifically the beta distribution (see <a href="http://en.wikipedia.org/wiki/Beta_distribution" class="orm:hideurl">http://en.wikipedia.org/wiki/Beta_distribution</a>).<a data-type="indexterm" data-primary="continuous distribution" id="idp1332000"/></p><p>The beta distribution is defined on the interval from 0 to 1
+    (including both), so it is a natural choice for describing proportions and
+    probabilities. But wait, it gets better.</p><p>It turns out that if you do a Bayesian update with a binomial
+    likelihood function, as we did in the previous section, the beta
+    distribution is a <strong>conjugate prior</strong>. That
+    means that if the prior distribution for <code>x</code> is a beta distribution, the posterior is also
+    a beta distribution. But wait, it gets even better.<a data-type="indexterm" data-primary="binomial likelihood function" id="idp1338048"/><a data-type="indexterm" data-primary="conjugate prior" id="idp1339280"/></p><p>The shape of the beta distribution depends on two parameters,
+    written <em>α</em> and <em>β</em>, or <code>alpha</code> and
+    <code>beta</code>. If the prior is a beta
+    distribution with parameters <code>alpha</code> and
+    <code>beta</code>, and we see data with <code>h</code> heads and <code>t</code>
+    tails, the posterior is a beta distribution with parameters <code>alpha+h</code> and <code>beta+t</code>. In other words, we can do an update with
+    two additions.<a data-type="indexterm" data-primary="parameter" id="idp1344576"/></p><p>So that’s great, but it only works if we can find a beta
+    distribution that is a good choice for a prior. Fortunately, for many
+    realistic priors there is a beta distribution that is at least a good
+    approximation, and for a uniform prior there is a perfect match. The beta
+    distribution with <code>alpha=1</code> and <code>beta=1</code> is uniform from 0 to 1.</p><p>Let’s see how we can take advantage of all this. <code>thinkbayes.py</code> provides a class that represents a
+    beta distribution:<a data-type="indexterm" data-primary="Beta object" id="idp1345888"/></p><pre data-type="programlisting">class Beta(object):
+
+    def __init__(self, alpha=1, beta=1):
+        self.alpha = alpha
+        self.beta = beta</pre><p>By default <code>__init__</code>
+    makes a uniform distribution. <code>Update</code>
+    performs a Bayesian update:</p><pre data-type="programlisting">    def Update(self, data):
+        heads, tails = data
+        self.alpha += heads
+        self.beta += tails</pre><p><code>data</code> is a pair of integers
+    representing the number of heads and tails.</p><p>So we have yet another way to solve the Euro problem:</p><pre data-type="programlisting">    beta = thinkbayes.Beta()
+    beta.Update((140, 110))
+    print beta.Mean()</pre><p><code>Beta</code> provides <code>Mean</code>, which computes a simple function of
+    <code>alpha</code> and <code>beta</code>:</p><pre data-type="programlisting">    def Mean(self):
+        return float(self.alpha) / (self.alpha + self.beta)</pre><p>For the Euro problem the posterior mean is 56%, which is the same
+    result we got using Pmfs.</p><p><code>Beta</code> also provides <code>EvalPdf</code>, which evaluates the probability density
+    function (PDF) of the beta distribution:<a data-type="indexterm" data-primary="probability density function" id="idp1356928"/><a data-type="indexterm" data-primary="PDF" id="idp1357536"/></p><pre data-type="programlisting">    def EvalPdf(self, x):
+        return x**(self.alpha-1) * (1-x)**(self.beta-1)</pre><p>Finally, <code>Beta</code> provides <code>MakePmf</code>, which uses <code>EvalPdf</code> to generate a discrete approximation of
+    the beta distribution.</p></section><section data-type="sect1" id="a0000001812" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>In this chapter we solved the same problem with two different priors
+    and found that with a large dataset, the priors get swamped. If two people
+    start with different prior beliefs, they generally find, as they see more
+    data, that their posterior distributions converge. At some point the
+    difference between their distribution is small enough that it has no
+    practical effect.<a data-type="indexterm" data-primary="swamping the priors" id="idp1359312"/><a data-type="indexterm" data-primary="convergence" id="idp1363056"/></p><p>When this happens, it relieves some of the worry about objectivity
+    that I discussed in the previous chapter. And for many real-world problems
+    even stark prior beliefs can eventually be reconciled by data.</p><p>But that is not always the case. First, remember that all Bayesian
+    analysis is based on modeling decisions. If you and I do not choose the
+    same model, we might interpret data differently. So even with the same
+    data, we would compute different likelihoods, and our posterior beliefs
+    might not converge.<a data-type="indexterm" data-primary="modeling" id="idp1366096"/></p><p>Also, notice that in a Bayesian update, we multiply each prior
+    probability by a likelihood, so if <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>H</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math> is 0, <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>H</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>D</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math> is also 0, regardless of <em>D</em>. In the Euro problem, if you are convinced that
+    <em>x</em> is less than 50%, and you assign
+    probability 0 to all other hypotheses, no amount of data will convince you
+    otherwise.<a data-type="indexterm" data-primary="Euro problem" id="idp1371920"/></p><p>This observation is the basis of <strong>Cromwell’s
+    rule</strong>, which is the recommendation that you should avoid giving
+    a prior probability of 0 to any hypothesis that is even remotely possible
+    (see <a href="http://en.wikipedia.org/wiki/Cromwell’s_rule" class="orm:hideurl">http://en.wikipedia.org/wiki/Cromwell’s_rule</a>).<a data-type="indexterm" data-primary="Cromwell’s rule" id="idp1374288"/></p><p>Cromwell’s rule is named after Oliver Cromwell, who wrote, “I
+    beseech you, in the bowels of Christ, think it possible that you may be
+    mistaken.” For Bayesians, this turns out to be good advice (even if it’s a
+    little overwrought).<a data-type="indexterm" data-primary="Cromwell, Oliver" id="idp1375392"/></p></section><div class="hard-pagebreak"/><section data-type="sect1" id="a0000001830" data-pdf-bookmark="Exercises"><h1>Exercises</h1><div id="a0000001833" class="exercise" data-type="example"><h5/><p>Suppose that instead of observing coin tosses directly, you
+        measure the outcome using an instrument that is not always correct.
+        Specifically, suppose there is a probability <code>y</code> that an actual heads is reported as tails,
+        or actual tails reported as heads.</p><p>Write a class that estimates the bias of a coin given a series
+        of outcomes and the value of <code>y</code>.</p><p>How does the spread of the posterior distribution depend on
+        <code>y</code>?</p></div><div id="a0000001845" class="exercise" data-type="example"><h5/><p><a data-type="indexterm" data-primary="Reddit" id="idp1379248"/>This exercise is inspired by a question posted by a
+        “redditor” named dominosci on Reddit’s statistics “subreddit” at
+        <a href="http://reddit.com/r/statistics" class="orm:hideurl">http://reddit.com/r/statistics</a>.</p><p>Reddit is an online forum with many interest groups called
+        subreddits. Users, called redditors, post links to online content and
+        other web pages. Other redditors vote on the links, giving an “upvote”
+        to high-quality links and a “downvote” to links that are bad or
+        irrelevant.</p><p>A problem, identified by dominosci, is that some redditors are
+        more reliable than others, and Reddit does not take this into
+        account.</p><p>The challenge is to devise a system so that when a redditor
+        casts a vote, the estimated quality of the link is updated in
+        accordance with the reliability of the redditor, and the estimated
+        reliability of the redditor is updated in accordance with the quality
+        of the link.</p><p>One approach is to model the quality of the link as the
+        probability of garnering an upvote, and to model the reliability of
+        the redditor as the probability of correctly giving an upvote to a
+        high-quality item.</p><p>Write class definitions for redditors and links and an update
+        function that updates both objects whenever a redditor casts a
+        vote.</p></div></section></section>
+  </body>
+</html>

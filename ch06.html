@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="decisionanalysis" data-pdf-bookmark="Chapter 6. Decision Analysis"><h1>Decision Analysis</h1><section data-type="sect1" id="a0000002333" data-pdf-bookmark="The Price is Right problem"><h1>The Price is Right problem</h1><p>On November 1, 2007, contestants named Letia and Nathaniel appeared
+    on <em>The Price is Right</em>, an American game show. They
+    competed in a game called <em>The Showcase</em>, where the
+    objective is to guess the price of a showcase of prizes. The contestant
+    who comes closest to the actual price of the showcase, without going over,
+    wins the prizes.<a data-type="indexterm" data-primary="Price is Right" id="idp1720864"/><a data-type="indexterm" data-primary="Showcase" id="idp1725600"/></p><p>Nathaniel went first. His showcase included a dishwasher, a wine
+    cabinet, a laptop computer, and a car. He bid $26,000.</p><p>Letia’s showcase included a pinball machine, a video arcade game, a
+    pool table, and a cruise of the Bahamas. She bid $21,500.</p><p>The actual price of Nathaniel’s showcase was $25,347. His bid was
+    too high, so he lost.</p><p>The actual price of Letia’s showcase was $21,578. She was only off
+    by $78, so she won her showcase and, because her bid was off by less than
+    $250, she also won Nathaniel’s showcase.</p><p>For a Bayesian thinker, this scenario suggests several
+    questions:</p><ol><li><p>Before seeing the prizes, what prior beliefs should the
+        contestant have about the price of the showcase?</p></li><li><p>After seeing the prizes, how should the contestant update those
+        beliefs?</p></li><li><p>Based on the posterior distribution, what should the contestant
+        bid?</p></li></ol><p>The third question demonstrates a common use of Bayesian analysis:
+    decision analysis. Given a posterior distribution, we can choose the bid
+    that maximizes the contestant’s expected return.<a data-type="indexterm" data-primary="decision analysis" id="idp1730672"/></p><p>This problem is inspired by an example in Cameron Davidson-Pilon’s
+    book, <em>Bayesian Methods for Hackers</em>. The code I wrote
+    for this chapter is available from <a href="http://thinkbayes.com/price.py" class="orm:hideurl">http://thinkbayes.com/price.py</a>;
+    it reads data files you can download from <a href="http://thinkbayes.com/showcases.2011.csv" class="orm:hideurl">http://thinkbayes.com/showcases.2011.csv</a>
+    and <a href="http://thinkbayes.com/showcases.2012.csv" class="orm:hideurl">http://thinkbayes.com/showcases.2012.csv</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.<a data-type="indexterm" data-primary="Davidson-Pilon, Cameron" id="idp1736336"/></p></section><section data-type="sect1" id="a0000002373" data-pdf-bookmark="The prior"><h1>The prior</h1><p>To choose a prior distribution of prices, we can take advantage of
+    data from previous episodes. Fortunately, fans of the show keep detailed
+    records. When I corresponded with Mr.Davidson-Pilon
+    about his book, he sent me data collected by Steve Gee at <a href="http://tpirsummaries.8m.com" class="orm:hideurl">http://tpirsummaries.8m.com</a>. It
+    includes the price of each showcase from the 2011 and 2012 seasons and the
+    bids offered by the contestants.<a data-type="indexterm" data-primary="Gee, Steve" id="idp1738096"/></p><p><a data-type="xref" href="#fig.price1">Figure 6-1</a> shows the distribution of prices for
+    these showcases. The most common value for both showcases is around
+    $28,000, but the first showcase has a second mode near $50,000, and the
+    second showcase is occasionally worth more than $70,000.</p><figure id="fig.price1" style="float: none"><img src="images/thba_0601.png"/><figcaption>Distribution of prices for showcases on The Price is Right,
+      2011-12.</figcaption></figure><p>These distributions are based on actual data, but they have been
+    smoothed by Gaussian kernel density estimation (KDE). Before we go on, I
+    want to take a detour to talk about probability density functions and
+    KDE.<a data-type="indexterm" data-primary="kernel density estimation" id="idp1739760"/><a data-type="indexterm" data-primary="KDE" id="idp1742992"/></p></section><section data-type="sect1" id="a0000002396" data-pdf-bookmark="Probability density functions"><h1>Probability density functions</h1><p>So far we have been working with probability mass functions, or
+    PMFs. A PMF is a map from each possible value to its probability. In my
+    implementation, a Pmf object provides a method named <code>Prob</code> that takes a value and returns a
+    probability, also known as a <strong>probability
+    mass</strong>.<a data-type="indexterm" data-primary="probability density function" id="idp1744656"/><a data-type="indexterm" data-primary="Pdf" id="idp1745264"/><a data-type="indexterm" data-primary="Pmf" id="idp1747952"/><a data-type="indexterm" data-primary="Gaussian distribution" id="idp1748560"/></p><p>In mathematical notation, PDFs are usually written as functions; for
+    example, here is the PDF of a Gaussian distribution with mean 0 and
+    standard deviation 1:</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>f</mml:mi>
+
+            <mml:mrow>
+              <mml:mo>(</mml:mo>
+
+              <mml:mi>x</mml:mi>
+
+              <mml:mo>)</mml:mo>
+            </mml:mrow>
+
+            <mml:mo>=</mml:mo>
+
+            <mml:mfrac>
+              <mml:mn>1</mml:mn>
+
+              <mml:msqrt>
+                <mml:mrow>
+                  <mml:mn>2</mml:mn>
+
+                  <mml:mi>π</mml:mi>
+                </mml:mrow>
+              </mml:msqrt>
+            </mml:mfrac>
+
+            <mml:mo form="prefix">exp</mml:mo>
+
+            <mml:mrow>
+              <mml:mo>(</mml:mo>
+
+              <mml:mo>-</mml:mo>
+
+              <mml:msup>
+                <mml:mi>x</mml:mi>
+
+                <mml:mn>2</mml:mn>
+              </mml:msup>
+
+              <mml:mo>/2)</mml:mo>
+            </mml:mrow>
+          </mml:mrow>
+        </math></div><p>For a given value of <em>x</em>, this
+    function computes a probability density. A density is similar to a
+    probability mass in the sense that a higher density indicates that a value
+    is more likely.<a data-type="indexterm" data-primary="density" id="idp1761904"/><a data-type="indexterm" data-primary="probability density" id="idp1762512"/><a data-type="indexterm" data-primary="probability" id="idp1763120"/></p><p>But a density is not a probability. A density can be 0 or any
+    positive value; it is not bounded, like a probability, between 0 and
+    1.</p><p>If you integrate a density over a continuous range, the result is a
+    probability. But for the applications in this book we seldom have to do
+    that.</p><p>Instead we primarily use probability densities as part of a
+    likelihood function. We will see an example soon.</p></section><section data-type="sect1" id="a0000002420" data-pdf-bookmark="Representing PDFs"><h1>Representing PDFs</h1><p><a data-type="indexterm" data-primary="Pdf" id="idp1764576"/>To represent PDFs in Python, <code>thinkbayes.py</code> provides a class named <code>Pdf</code>. <code>Pdf</code> is
+    an <strong>abstract type</strong>, which means that it
+    defines the interface a Pdf is supposed to have, but does not provide a
+    complete implementation. The <code>Pdf</code>
+    interface includes two methods, <code>Density</code>
+    and <code>MakePmf</code>:</p><pre data-type="programlisting">class Pdf(object):
+
+    def Density(self, x):
+        raise UnimplementedMethodException()
+
+    def MakePmf(self, xs):
+        pmf = Pmf()
+        for x in xs:
+            pmf.Set(x, self.Density(x))
+        pmf.Normalize()
+        return pmf</pre><p><code>Density</code> takes a value, <code>x</code>, and returns the corresponding density.
+    <code>MakePmf</code> makes a discrete approximation
+    to the PDF.</p><p><code>Pdf</code> provides an implementation of
+    <code>MakePmf</code>, but not <code>Density</code>, which has to be provided by a child
+    class.<a data-type="indexterm" data-primary="abstract type" id="idp1775104"/><a data-type="indexterm" data-primary="concrete type" id="idp1775712"/><a data-type="indexterm" data-primary="interface" id="idp1776320"/><a data-type="indexterm" data-primary="implementation" id="idp1776928"/></p><p><a data-type="indexterm" data-primary="Gaussian distribution" id="idp1777728"/>A <strong>concrete type</strong> is a child
+    class that extends an abstract type and provides an implementation of the
+    missing methods. For example, <code>GaussianPdf</code> extends <code>Pdf</code> and provides <code>Density</code>:</p><pre data-type="programlisting">class GaussianPdf(Pdf):
+
+    def __init__(self, mu, sigma):
+        self.mu = mu
+        self.sigma = sigma
+        
+    def Density(self, x):
+        return scipy.stats.norm.pdf(x, self.mu, self.sigma)</pre><p><code>__init__</code> takes
+    <code>mu</code> and <code>sigma</code>, which are the mean and standard deviation
+    of the distribution, and stores them as attributes.</p><p><code>Density</code> uses a function from
+    <code>scipy.stats</code> to evaluate the Gaussian
+    PDF. The function is called <code>norm.pdf</code>
+    because the Gaussian distribution is also called the “normal”
+    distribution.<a data-type="indexterm" data-primary="scipy" id="idp1783008"/><a data-type="indexterm" data-primary="normal distribution" id="idp1786032"/></p><p>The Gaussian PDF is defined by a simple mathematical function, so it
+    is easy to evaluate. And it is useful because many quantities in the real
+    world have distributions that are approximately Gaussian.<a data-type="indexterm" data-primary="Gaussian distribution" id="idp1784800"/><a data-type="indexterm" data-primary="Gaussian PDF" id="idp1785344"/></p><p>But with real data, there is no guarantee that the distribution is
+    Gaussian or any other simple mathematical function. In that case we can
+    use a sample to estimate the PDF of the whole population.</p><p>For example, in <em>The Price Is Right</em> data, we
+    have 313 prices for the first showcase. We can think of these values as a
+    sample from the population of all possible showcase prices.</p><p>This sample includes the following values (in order):</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mn>28800</mml:mn>
+
+            <mml:mo>,</mml:mo>
+
+            <mml:mn>28868</mml:mn>
+
+            <mml:mo>,</mml:mo>
+
+            <mml:mn>28941</mml:mn>
+
+            <mml:mo>,</mml:mo>
+
+            <mml:mn>28957</mml:mn>
+
+            <mml:mo>,</mml:mo>
+
+            <mml:mn>28958</mml:mn>
+          </mml:mrow>
+        </math></div><div class="hard-pagebreak"/><p>In the sample, no values appear between 28801 and 28867, but there
+    is no reason to think that these values are impossible. Based on our
+    background information, we expect all values in this range to be equally
+    likely. In other words, we expect the PDF to be fairly smooth.</p><p>Kernel density estimation (KDE) is an algorithm that takes a sample
+    and finds an appropriately smooth PDF that fits the data. You can read
+    details at <a href="http://en.wikipedia.org/wiki/Kernel_density_estimation" class="orm:hideurl">http://en.wikipedia.org/wiki/Kernel_density_estimation</a>.<a data-type="indexterm" data-primary="KDE" id="idp1798688"/><a data-type="indexterm" data-primary="kernel density estimation" id="idp1799296"/></p><p><code>scipy</code> provides an implementation
+    of KDE and <code>thinkbayes</code> provides a class
+    called <code>EstimatedPdf</code> that uses
+    it:<a data-type="indexterm" data-primary="scipy" id="idp1797232"/></p><pre data-type="programlisting">class EstimatedPdf(Pdf):
+
+    def __init__(self, sample):
+        self.kde = scipy.stats.gaussian_kde(sample)
+
+    def Density(self, x):
+        return self.kde.evaluate(x)</pre><p><code>__init__</code> takes a
+    sample and computes a kernel density estimate. The result is a <code>gaussian_kde</code> object that provides
+    an <code>evaluate</code> method.</p><p><code>Density</code> takes a value, calls
+    <code>gaussian_kde.evaluate</code>, and
+    returns the resulting density.<a data-type="indexterm" data-primary="density" id="idp1804288"/></p><p>Finally, here’s an outline of the code I used to generate <a data-type="xref" href="#fig.price1">Figure 6-1</a>:</p><pre data-type="programlisting">    prices = ReadData()
+    pdf = thinkbayes.EstimatedPdf(prices)
+
+    low, high = 0, 75000
+    n = 101
+    xs = numpy.linspace(low, high, n) 
+    pmf = pdf.MakePmf(xs)</pre><p><code>pdf</code> is a <code>Pdf</code> object, estimated by KDE. <code>pmf</code> is a Pmf object that approximates the Pdf by
+    evaluating the density at a sequence of equally spaced values.</p><p><code>linspace</code> stands for “linear
+    space.” It takes a range, <code>low</code> and
+    <code>high</code>, and the number of points,
+    <code>n</code>, and returns a new <code>numpy</code> array with <code>n</code> elements equally spaced between <code>low</code> and <code>high</code>,
+    including both.<a data-type="indexterm" data-primary="numpy" id="idp1811360"/></p><p>And now back to <em>The Price is Right</em>.</p></section><section data-type="sect1" id="a0000002538" data-pdf-bookmark="Modeling the contestants"><h1>Modeling the contestants</h1><p>The PDFs in <a data-type="xref" href="#fig.price1">Figure 6-1</a> estimate the distribution
+    of possible prices. If you were a contestant on the show, you could use
+    this distribution to quantify your prior belief about the price of each
+    showcase (before you see the prizes).</p><p>To update these priors, we have to answer these questions:</p><ol><li><p>What data should we consider and how should we quantify
+        it?</p></li><li><p>Can we compute a likelihood function; that is, for each
+        hypothetical value of <code>price</code>, can we
+        compute the conditional likelihood of the data?</p></li></ol><p>To answer these questions, I am going to model the contestant as a
+    price-guessing instrument with known error characteristics. In other
+    words, when the contestant sees the prizes, he or she guesses the price of
+    each prize—ideally without taking into consideration the fact that the
+    prize is part of a showcase—and adds up the prices. Let’s call this total
+    <code>guess</code>.<a data-type="indexterm" data-primary="error" id="idp1818352"/></p><p>Under this model, the question we have to answer is, “If the actual
+    price is <code>price</code>, what is the likelihood
+    that the contestant’s estimate would be <code>guess</code>?”<a data-type="indexterm" data-primary="likelihood" id="idp1819200"/></p><p>Or if we define:</p><pre data-type="programlisting">    error = price - guess</pre><p>then we could ask, “What is the likelihood that the contestant’s
+    estimate is off by <code>error</code>?”</p><p>To answer this question, we can use the historical data again. <a data-type="xref" href="#fig.price2">Figure 6-2</a> shows the cumulative distribution of <code>diff</code>, the difference between the contestant’s
+    bid and the actual price of the showcase.<a data-type="indexterm" data-primary="Cdf" id="idp1826704"/></p><figure id="fig.price2" style="float: True"><img src="images/thba_0602.png"/><figcaption>Cumulative distribution (CDF) of the difference between the
+      contestant’s bid and the actual price.</figcaption></figure><p>The definition of diff is:</p><pre data-type="programlisting">    diff = price - bid</pre><p>When <code>diff</code> is negative, the bid is
+    too high. As an aside, we can use this distribution to compute the
+    probability that the contestants overbid: the first contestant overbids
+    25% of the time; the second contestant overbids 29% of the time.</p><p>We can also see that the bids are biased; that is, they are more
+    likely to be too low than too high. And that makes sense, given the rules
+    of the game.</p><p>Finally, we can use this distribution to estimate the reliability of
+    the contestants’ guesses. This step is a little tricky because we don’t
+    actually know the contestant’s guesses; we only know what they bid.</p><p>So we’ll have to make some assumptions. Specifically, I assume that
+    the distribution of <code>error</code> is Gaussian
+    with mean 0 and the same variance as <code>diff</code>.<a data-type="indexterm" data-primary="Gaussian distribution" id="idp1832400"/></p><p>The <code>Player</code> class implements this
+    model:<a data-type="indexterm" data-primary="numpy" id="idp1828704"/></p><pre data-type="programlisting">class Player(object):
+
+    def __init__(self, prices, bids, diffs):
+        self.pdf_price = thinkbayes.EstimatedPdf(prices)
+        self.cdf_diff = thinkbayes.MakeCdfFromList(diffs)
+
+        mu = 0
+        sigma = numpy.std(diffs)
+        self.pdf_error = thinkbayes.GaussianPdf(mu, sigma)</pre><p><code>prices</code> is a sequence of showcase
+    prices, <code>bids</code> is a sequence of bids, and
+    <code>diffs</code> is a sequence of diffs, where
+    again <code>diff = price - bid</code>.</p><p><code>pdf_price</code> is the
+    smoothed PDF of prices, estimated by KDE. <code>cdf_diff</code> is the cumulative distribution of <code>diff</code>, which we saw in <a data-type="xref" href="#fig.price2">Figure 6-2</a>. And <code>pdf_error</code> is the PDF that characterizes the
+    distribution of errors; where <code>error = price -
+    guess</code>.</p><p>Again, we use the variance of <code>diff</code> to estimate the variance of <code>error</code>. This estimate is not perfect because
+    contestants’ bids are sometimes strategic; for example, if Player 2 thinks
+    that Player 1 has overbid, Player 2 might make a very low bid. In that
+    case <code>diff</code> does not reflect <code>error</code>. If this happens a lot, the observed
+    variance in <code>diff</code> might overestimate the
+    variance in <code>error</code>. Nevertheless, I
+    think it is a reasonable modeling decision.</p><p>As an alternative, someone preparing to appear on the show could
+    estimate their own distribution of <code>error</code> by watching previous shows and recording
+    their guesses and the actual prices.</p></section><section data-type="sect1" id="a0000002637" data-pdf-bookmark="Likelihood"><h1>Likelihood</h1><p>Now we are ready to write the likelihood function. As usual, I
+    define a new class that extends <code>thinkbayes.Suite</code>:</p><pre data-type="programlisting">class Price(thinkbayes.Suite):
+
+    def __init__(self, pmf, player):
+        thinkbayes.Suite.__init__(self, pmf)
+        self.player = player</pre><p><code>pmf</code> represents the prior
+    distribution and <code>player</code> is a Player
+    object as described in the previous section. Here’s <code>Likelihood</code>:</p><pre data-type="programlisting">    def Likelihood(self, data, hypo):
+        price = hypo
+        guess = data
+
+        error = price - guess
+        like = self.player.ErrorDensity(error)
+
+        return like</pre><p><code>hypo</code> is the hypothetical price of
+    the showcase. <code>data</code> is the contestant’s
+    best guess at the price. <code>error</code> is the
+    difference, and <code>like</code> is the likelihood
+    of the data, given the hypothesis.</p><p><code>ErrorDensity</code> is defined in
+    <code>Player</code>:</p><pre data-type="programlisting"># class Player:
+
+    def ErrorDensity(self, error):
+        return self.pdf_error.Density(error)</pre><p><code>ErrorDensity</code> works by evaluating
+    <code>pdf_error</code> at the given
+    value of <code>error</code>. The result is a
+    probability density, so it is not really a probability. But remember that
+    <code>Likelihood</code> doesn’t need to compute a
+    probability; it only has to compute something
+    <em>proportional</em> to a probability. As long as the
+    constant of proportionality is the same for all likelihoods, it gets
+    canceled out when we normalize the posterior distribution.<a data-type="indexterm" data-primary="density" id="idp1852976"/></p><p>And therefore, a probability density is a perfectly good
+    likelihood.</p></section><section data-type="sect1" id="a0000002680" data-pdf-bookmark="Update"><h1>Update</h1><p><code>Player</code> provides a method that
+    takes the contestant’s guess and computes the posterior
+    distribution:</p><pre data-type="programlisting"># class Player
+
+    def MakeBeliefs(self, guess):
+        pmf = self.PmfPrice()
+        self.prior = Price(pmf, self)
+        self.posterior = self.prior.Copy()
+        self.posterior.Update(guess)</pre><p><code>PmfPrice</code> generates a discrete
+    approximation to the PDF of price, which we use to construct the
+    prior.</p><p><code>PmfPrice</code> uses <code>MakePmf</code>, which evaluates <code>pdf_price</code> at a sequence of
+    values:</p><pre data-type="programlisting"># class Player
+
+    n = 101
+    price_xs = numpy.linspace(0, 75000, n)
+
+    def PmfPrice(self):
+        return self.pdf_price.MakePmf(self.price_xs)</pre><p>To construct the posterior, we make a copy of the prior and then
+    invoke <code>Update</code>, which invokes <code>Likelihood</code> for each hypothesis, multiplies the
+    priors by the likelihoods, and renormalizes.<a data-type="indexterm" data-primary="normalize" id="idp1863104"/></p><p>So let’s get back to the original scenario. Suppose you are Player 1
+    and when you see your showcase, your best guess is that the total price of
+    the prizes is $20,000.</p><p><a data-type="xref" href="#fig.price3">Figure 6-3</a> shows prior and posterior beliefs
+    about the actual price. The posterior is shifted to the left because your
+    guess is on the low end of the prior range.</p><figure id="fig.price3" style="float: True"><img src="images/thba_0603.png"/><figcaption>Prior and posterior distributions for Player 1, based on a best
+      guess of $20,000.</figcaption></figure><p>On one level, this result makes sense. The most likely value in the
+    prior is $27,750, your best guess is $20,000, and the mean of the
+    posterior is somewhere in between: $25,096.</p><p>On another level, you might find this result bizarre, because it
+    suggests that if you <em>think</em> the price is $20,000, then
+    you should <em>believe</em> the price is $24,000.</p><p>To resolve this apparent paradox, remember that you are combining
+    two sources of information, historical data about past showcases and
+    guesses about the prizes you see.</p><p>We are treating the historical data as the prior and updating it
+    based on your guesses, but we could equivalently use your guess as a prior
+    and update it based on historical data.</p><p>If you think of it that way, maybe it is less surprising that the
+    most likely value in the posterior is not your original guess.</p></section><section data-type="sect1" id="a0000002732" data-pdf-bookmark="Optimal bidding"><h1>Optimal bidding</h1><p>Now that we have a posterior distribution, we can use it to compute
+    the optimal bid, which I define as the bid that maximizes expected return
+    (see <a href="http://en.wikipedia.org/wiki/Expected_return" class="orm:hideurl">http://en.wikipedia.org/wiki/Expected_return</a>).<a data-type="indexterm" data-primary="decision analysis" id="idp1865152"/></p><p>I’m going to present the methods in this section top-down, which
+    means I will show you how they are used before I show you how they work.
+    If you see an unfamiliar method, don’t worry; the definition will be along
+    shortly.</p><p>To compute optimal bids, I wrote a class called <code>GainCalculator</code>:</p><pre data-type="programlisting">class GainCalculator(object):
+
+    def __init__(self, player, opponent):
+        self.player = player
+        self.opponent = opponent</pre><p><code>player</code> and <code>opponent</code> are <code>Player</code> objects.</p><p><code>GainCalculator</code> provides <code>ExpectedGains</code>, which computes a sequence of bids
+    and the expected gain for each bid:<a data-type="indexterm" data-primary="numpy" id="idp1877808"/></p><pre data-type="programlisting">    def ExpectedGains(self, low=0, high=75000, n=101):
+        bids = numpy.linspace(low, high, n)
+
+        gains = [self.ExpectedGain(bid) for bid in bids]
+
+        return bids, gains</pre><p><code>low</code> and <code>high</code> specify the range of possible bids;
+    <code>n</code> is the number of bids to try.</p><p><code>ExpectedGains</code> calls <code>ExpectedGain</code>, which computes expected gain for a
+    given bid:</p><pre data-type="programlisting">    def ExpectedGain(self, bid):
+        suite = self.player.posterior
+        total = 0
+        for price, prob in sorted(suite.Items()):
+            gain = self.Gain(bid, price)
+            total += prob * gain
+        return total</pre><p><code>ExpectedGain</code> loops through the
+    values in the posterior and computes the gain for each bid, given the
+    actual prices of the showcase. It weights each gain with the corresponding
+    probability and returns the total.</p><p><code>ExpectedGain</code> invokes <code>Gain</code>, which takes a bid and an actual price and
+    returns the expected gain:</p><pre data-type="programlisting">    def Gain(self, bid, price):
+        if bid &gt; price:
+            return 0
+
+        diff = price - bid
+        prob = self.ProbWin(diff)
+
+        if diff &lt;= 250:
+            return 2 * price * prob
+        else:
+            return price * prob</pre><p>If you overbid, you get nothing. Otherwise we compute the difference
+    between your bid and the price, which determines your probability of
+    winning.</p><p>If <code>diff</code> is less than $250, you
+    win both showcases. For simplicity, I assume that both showcases have the
+    same price. Since this outcome is rare, it doesn’t make much
+    difference.</p><p>Finally, we have to compute the probability of winning based on
+    <code>diff</code>:</p><pre data-type="programlisting">    def ProbWin(self, diff):
+        prob = (self.opponent.ProbOverbid() + 
+                self.opponent.ProbWorseThan(diff))
+        return prob</pre><p>If your opponent overbids, you win. Otherwise, you have to hope that
+    your opponent is off by more than <code>diff</code>.
+    <code>Player</code> provides methods to compute both
+    probabilities:</p><pre data-type="programlisting"># class Player:
+
+    def ProbOverbid(self):
+        return self.cdf_diff.Prob(-1)
+
+    def ProbWorseThan(self, diff):
+        return 1 - self.cdf_diff.Prob(diff)</pre><p>This code might be confusing because the computation is now from the
+    point of view of the opponent, who is computing, “What is the probability
+    that I overbid?” and “What is the probability that my bid is off by more
+    than <code>diff</code>?”</p><p>Both answers are based on the CDF of <code>diff</code>. If the opponent’s <code>diff</code> is less than or equal to -1, you win. If
+    the opponent’s <code>diff</code> is worse than
+    yours, you win. Otherwise you lose.</p><p>Finally, here’s the code that computes optimal bids:</p><pre data-type="programlisting"># class Player:
+
+    def OptimalBid(self, guess, opponent):
+        self.MakeBeliefs(guess)
+        calc = GainCalculator(self, opponent)
+        bids, gains = calc.ExpectedGains()
+        gain, bid = max(zip(gains, bids))
+        return bid, gain</pre><figure id="fig.price5" style="float: True"><img src="images/thba_0604.png"/><figcaption>Expected gain versus bid in a scenario where Player 1’s best
+      guess is $20,000 and Player 2’s best guess is $40,000.</figcaption></figure><p>Given a guess and an opponent, <code>OptimalBid</code> computes the posterior distribution,
+    instantiates a <code>GainCalculator</code>, computes
+    expected gains for a range of bids and returns the optimal bid and
+    expected gain. Whew!</p><p><a data-type="xref" href="#fig.price5">Figure 6-4</a> shows the results for both players,
+    based on a scenario where Player 1’s best guess is $20,000 and Player 2’s
+    best guess is $40,000.</p><p>For Player 1 the optimal bid is $21,000, yielding an expected return
+    of almost $16,700. This is a case (which turns out to be unusual) where
+    the optimal bid is actually higher than the contestant’s best
+    guess.</p><p>For Player 2 the optimal bid is $31,500, yielding an expected return
+    of almost $19,400. This is the more typical case where the optimal bid is
+    less than the best guess.</p></section><section data-type="sect1" id="a0000002837" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>One of the features of Bayesian estimation is that the result comes
+    in the form of a posterior distribution. Classical estimation usually
+    generates a single point estimate or a confidence interval, which is
+    sufficient if estimation is the last step in the process, but if you want
+    to use an estimate as an input to a subsequent analysis, point estimates
+    and intervals are often not much help.<a data-type="indexterm" data-primary="distribution" id="idp1901296"/></p><p>In this example, we use the posterior distribution to compute an
+    optimal bid. The return on a given bid is asymmetric and discontinuous (if
+    you overbid, you lose), so it would be hard to solve this problem
+    analytically. But it is relatively simple to do computationally.<a data-type="indexterm" data-primary="decision analysis" id="idp1902656"/></p><p>Newcomers to Bayesian thinking are often tempted to summarize the
+    posterior distribution by computing the mean or the maximum likelihood
+    estimate. These summaries can be useful, but if that’s all you need, then
+    you probably don’t need Bayesian methods in the first place.<a data-type="indexterm" data-primary="maximum likelihood" id="idp1906016"/><a data-type="indexterm" data-primary="summary statistic" id="idp1905104"/></p><p>Bayesian methods are most useful when you can carry the posterior
+    distribution into the next step of the analysis to perform some kind of
+    decision analysis, as we did in this chapter, or some kind of prediction,
+    as we see in the next chapter.</p></section></section>
+  </body>
+</html>

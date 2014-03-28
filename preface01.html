@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="preface" id="preface" data-pdf-bookmark="Preface"><h1>Preface</h1><section data-type="sect1" id="a0000000049" data-pdf-bookmark="My theory, which is mine"><h1>My theory, which is mine</h1><p>The premise of this book, and the other books in the <em>Think
+    X</em> series, is that if you know how to program, you can use that
+    skill to learn other topics.</p><p>Most books on Bayesian statistics use mathematical notation and
+    present ideas in terms of mathematical concepts like calculus. This book
+    uses Python code instead of math, and discrete approximations instead of
+    continuous mathematics. As a result, what would be an integral in a math
+    book becomes a summation, and most operations on probability distributions
+    are simple loops.</p><p>I think this presentation is easier to understand, at least for
+    people with programming skills. It is also more general, because when we
+    make modeling decisions, we can choose the most appropriate model without
+    worrying too much about whether the model lends itself to conventional
+    analysis.</p><p>Also, it provides a smooth development path from simple examples to
+    real-world problems. <a data-type="xref" href="ch03.html#estimation">Chapter 3</a> is a good example. It
+    starts with a simple example involving dice, one of the staples of basic
+    probability. From there it proceeds in small steps to the locomotive
+    problem, which I borrowed from Mosteller’s <em>Fifty Challenging
+    Problems in Probability with Solutions</em>, and from there to the
+    German tank problem, a famously successful application of Bayesian methods
+    during World War II.</p></section><section data-type="sect1" id="a0000000061" data-pdf-bookmark="Modeling and approximation"><h1>Modeling and approximation</h1><p>Most chapters in this book are motivated by a real-world problem, so
+    they involve some degree of modeling. Before we can apply Bayesian methods
+    (or any other analysis), we have to make decisions about which parts of
+    the real-world system to include in the model and which details we can
+    abstract away.<a data-type="indexterm" data-primary="modeling" id="idp366848"/></p><p>For example, in <a data-type="xref" href="ch07.html#prediction">Chapter 7</a>, the motivating
+    problem is to predict the winner of a hockey game. I model goal-scoring as
+    a Poisson process, which implies that a goal is equally likely at any
+    point in the game. That is not exactly true, but it is probably a good
+    enough model for most purposes.<a data-type="indexterm" data-primary="Poisson process" id="idp375472"/></p><p>In <a data-type="xref" href="ch12.html#evidence">Chapter 12</a> the motivating problem is
+    interpreting SAT scores (the SAT is a standardized test used for college
+    admissions in the United States). I start with a simple model that assumes
+    that all SAT questions are equally difficult, but in fact the designers of
+    the SAT deliberately include some questions that are relatively easy and
+    some that are relatively hard. I present a second model that accounts for
+    this aspect of the design, and show that it doesn’t have a big effect on
+    the results after all.</p><p>I think it is important to include modeling as an explicit part of
+    problem solving because it reminds us to think about modeling errors (that
+    is, errors due to simplifications and assumptions of the model).</p><p>Many of the methods in this book are based on discrete
+    distributions, which makes some people worry about numerical errors. But
+    for real-world problems, numerical errors are almost always smaller than
+    modeling errors.</p><p>Furthermore, the discrete approach often allows better modeling
+    decisions, and I would rather have an approximate solution to a good model
+    than an exact solution to a bad model.</p><p>On the other hand, continuous methods sometimes yield performance
+    advantages—for example by replacing a linear- or quadratic-time
+    computation with a constant-time solution.</p><p>So I recommend a general process with these steps:</p><ol><li><p>While you are exploring a problem, start with simple models and
+        implement them in code that is clear, readable, and demonstrably
+        correct. Focus your attention on good modeling decisions, not
+        optimization.</p></li><li><p>Once you have a simple model working, identify the biggest
+        sources of error. You might need to increase the number of values in a
+        discrete approximation, or increase the number of iterations in a
+        Monte Carlo simulation, or add details to the model.</p></li><li><p>If the performance of your solution is good enough for your
+        application, you might not have to do any optimization. But if you do,
+        there are two approaches to consider. You can review your code and
+        look for optimizations; for example, if you cache previously computed
+        results you might be able to avoid redundant computation. Or you can
+        look for analytic methods that yield computational shortcuts.</p></li></ol><p>One benefit of this process is that Steps 1 and 2 tend to be fast,
+    so you can explore several alternative models before investing heavily in
+    any of them.</p><p>Another benefit is that if you get to Step 3, you will be starting
+    with a reference implementation that is likely to be correct, which you
+    can use for regression testing (that is, checking that the optimized code
+    yields the same results, at least approximately).<a data-type="indexterm" data-primary="regression testing" id="idp379680"/></p></section><section data-type="sect1" id="download" data-pdf-bookmark="Working with the code"><h1>Working with the code</h1><p>Many of the examples in this book use classes and functions defined
+    in <code>thinkbayes.py</code>. You can download this
+    module from <a href="http://thinkbayes.com/thinkbayes.py" class="orm:hideurl">http://thinkbayes.com/thinkbayes.py</a>.</p><p>Most chapters contain references to code you can download from
+    <a href="http://thinkbayes.com" class="orm:hideurl">http://thinkbayes.com</a>. Some of those
+    files have dependencies you will also have to download. I suggest you keep
+    all of these files in the same directory so they can import each other
+    without changing the Python search path.</p><p>You can download these files one at a time as you need them, or you
+    can download them all at once from <a href="http://thinkbayes.com/thinkbayes_code.zip" class="orm:hideurl">http://thinkbayes.com/thinkbayes_code.zip</a>.
+    This file also contains the data files used by some of the programs. When
+    you unzip it, it creates a directory named <code>thinkbayes_code</code> that contains all the code used in
+    this book.</p><p>Or, if you are a Git user, you can get all of the files at once by
+    forking and cloning this repository: <a href="https://github.com/AllenDowney/ThinkBayes" class="orm:hideurl">https://github.com/AllenDowney/ThinkBayes</a>.</p><p>One of the modules I use is <code>thinkplot.py</code>, which provides wrappers for some
+    of the functions in <code>pyplot</code>. To use it,
+    you need to install <code>matplotlib</code>. If you
+    don’t already have it, check your package manager to see if it is
+    available. Otherwise you can get download instructions from <a href="http://matplotlib.org" class="orm:hideurl">http://matplotlib.org</a>.<a data-type="indexterm" data-primary="thinkplot" id="idp390432"/></p><p>Finally, some programs in this book use NumPy and SciPy, which are
+    available from <a href="http://numpy.org" class="orm:hideurl">http://numpy.org</a> and <a href="http://scipy.org" class="orm:hideurl">http://scipy.org</a>.<a data-type="indexterm" data-primary="numpy" id="idp393760"/><a data-type="indexterm" data-primary="scipy" id="idp394368"/></p></section><section data-type="sect1" id="a0000000113" data-pdf-bookmark="Code style"><h1>Code style</h1><p>Experienced Python programmers will notice that the code in this
+    book does not comply with PEP 8, which is the most common style guide for
+    Python (<a href="http://www.python.org/dev/peps/pep-0008/" class="orm:hideurl">http://www.python.org/dev/peps/pep-0008/</a>).<a data-type="indexterm" data-primary="PEP 8" id="idp398176"/></p><p>Specifically, PEP 8 calls for lowercase function names with
+    underscores between words, <code>like_this</code>. In this book and the accompanying code,
+    function and method names begin with a capital letter and use camel case,
+    <code>LikeThis</code>.</p><p>I broke this rule because I developed some of the code while I was a
+    Visiting Scientist at Google, so I followed the Google style guide, which
+    deviates from PEP 8 in a few places. Once I got used to Google style, I
+    found that I liked it. And at this point, it would be too much trouble to
+    change.</p><p>Also on the topic of style, I write “Bayes’s theorem” with an
+    <em>s</em> after the apostrophe, which is preferred in some
+    style guides and deprecated in others. I don’t have a strong preference. I
+    had to choose one, and this is the one I chose.</p><p>And finally one typographical note: throughout the book, I use PMF
+    and CDF for the mathematical concept of a probability mass function or
+    cumulative distribution function, and Pmf and Cdf to refer to the Python
+    objects I use to represent them.</p></section><section data-type="sect1" id="a0000000125" data-pdf-bookmark="Prerequisites"><h1>Prerequisites</h1><p>There are several excellent modules for doing Bayesian statistics in
+    Python, including <code>pymc</code> and OpenBUGS. I
+    chose not to use them for this book because you need a fair amount of
+    background knowledge to get started with these modules, and I want to keep
+    the prerequisites minimal. If you know Python and a little bit about
+    probability, you are ready to start this book.</p><p><a data-type="xref" href="ch01.html#intro">Chapter 1</a> is about probability and Bayes’s theorem;
+    it has no code. <a data-type="xref" href="ch02.html#compstat">Chapter 2</a> introduces <code>Pmf</code>, a thinly disguised Python dictionary I use
+    to represent a probability mass function (PMF). Then <a data-type="xref" href="ch03.html#estimation">Chapter 3</a> introduces <code>Suite</code>, a kind of Pmf that provides a framework
+    for doing Bayesian updates. And that’s just about all there is to
+    it.</p><p>Well, almost. In some of the later chapters, I use analytic
+    distributions including the Gaussian (normal) distribution, the
+    exponential and Poisson distributions, and the beta distribution. In <a data-type="xref" href="ch15.html#species">Chapter 15</a> I break out the less-common Dirichlet distribution,
+    but I explain it as I go along. If you are not familiar with these
+    distributions, you can read about them on Wikipedia. You could also read
+    the companion to this book, <em>Think Stats</em>, or an
+    introductory statistics book (although I’m afraid most of them take a
+    mathematical approach that is not particularly helpful for practical
+    purposes).</p></section><section data-type="sect1" id="idp412368" data-pdf-bookmark="Conventions Used in This Book"><h1>Conventions Used in This Book</h1><p>The following typographical conventions are used in this
+    book:</p><dl><dt><em>Italic</em></dt><dd><p>Indicates new terms, URLs, email addresses, filenames, and
+          file extensions.</p></dd><dt><code>Constant width</code></dt><dd><p>Used for program listings, as well as within paragraphs to
+          refer to program elements such as variable or function names,
+          databases, data types, environment variables, statements, and
+          keywords.</p></dd><dt><strong><code>Constant width bold</code></strong></dt><dd><p>Shows commands or other text that should be typed literally by
+          the user.</p></dd><dt><em><code>Constant width italic</code></em></dt><dd><p>Shows text that should be replaced with user-supplied values
+          or by values determined by context.</p></dd></dl><div data-type="tip"><p>This icon signifies a tip, suggestion, or general note.</p></div><div data-type="caution"><p>This icon indicates a warning or caution.</p></div></section><section data-type="sect1" id="idp416608" data-pdf-bookmark="Safari® Books Online"><h1>Safari® Books Online</h1><div class="safarienabled"><p>Safari Books Online (<a href="http://my.safaribooksonline.com/?portal=oreilly" class="orm:hideurl:ital">www.safaribooksonline.com</a>)
+      is an on-demand digital library that delivers expert <a href="http://www.safaribooksonline.com/content" class="orm:hideurl">content</a> in both
+      book and video form from the world’s leading authors in technology and
+      business.</p></div><p>Technology professionals, software developers, web designers, and
+    business and creative professionals use Safari Books Online as their
+    primary resource for research, problem solving, learning, and
+    certification training.</p><p>Safari Books Online offers a range of <a href="http://www.safaribooksonline.com/subscriptions" class="orm:hideurl">product mixes</a>
+    and pricing programs for <a href="http://www.safaribooksonline.com/organizations-teams" class="orm:hideurl">organizations</a>,
+    <a href="http://www.safaribooksonline.com/government" class="orm:hideurl">government
+    agencies</a>, and <a href="http://www.safaribooksonline.com/individuals" class="orm:hideurl">individuals</a>.
+    Subscribers have access to thousands of books, training videos, and
+    prepublication manuscripts in one fully searchable database from
+    publishers like O’Reilly Media, Prentice Hall Professional, Addison-Wesley
+    Professional, Microsoft Press, Sams, Que, Peachpit Press, Focal Press,
+    Cisco Press, John Wiley &amp; Sons, Syngress, Morgan Kaufmann, IBM
+    Redbooks, Packt, Adobe Press, FT Press, Apress, Manning, New Riders,
+    McGraw-Hill, Jones &amp; Bartlett, Course Technology, and dozens <a href="http://www.safaribooksonline.com/publishers" class="orm:hideurl">more</a>. For more
+    information about Safari Books Online, please visit us <a href="http://www.safaribooksonline.com/" class="orm:hideurl">online</a>.</p></section><section data-type="sect1" id="idp419424" data-pdf-bookmark="How to Contact Us"><h1>How to Contact Us</h1><p>Please address comments and questions concerning this book to the
+    publisher:</p><ul class="simplelist"><li>O’Reilly Media, Inc.</li><li>1005 Gravenstein Highway North</li><li>Sebastopol, CA 95472</li><li>800-998-9938 (in the United States or Canada)</li><li>707-829-0515 (international or local)</li><li>707-829-0104 (fax)</li></ul><p>We have a web page for this book, where we list errata, examples,
+    and any additional information. You can access this page at <a href="http://oreil.ly/think-bayes"><em class="hyperlink">http://oreil.ly/think-bayes</em></a>.</p><!--Don’t forget to update the <url> attribute, too.--><p>To comment or ask technical questions about this book, send email to
+    <a class="email" href="mailto:bookquestions@oreilly.com"><em>bookquestions@oreilly.com</em></a>.</p><p>For more information about our books, courses, conferences, and
+    news, see our website at <a href="http://www.oreilly.com"><em class="hyperlink">http://www.oreilly.com</em></a>.</p><p>Find us on Facebook: <a href="http://facebook.com/oreilly"><em class="hyperlink">http://facebook.com/oreilly</em></a></p><p>Follow us on Twitter: <a href="http://twitter.com/oreillymedia"><em class="hyperlink">http://twitter.com/oreillymedia</em></a></p><p>Watch us on YouTube: <a href="http://www.youtube.com/oreillymedia"><em class="hyperlink">http://www.youtube.com/oreillymedia</em></a></p></section><section data-type="sect1" id="a0000000145" data-pdf-bookmark="Contributor List"><h1>Contributor List</h1><p>If you have a suggestion or correction, please send email to
+    <em>downey@allendowney.com</em>. If I make a change based on
+    your feedback, I will add you to the contributor list (unless you ask to
+    be omitted).<a data-type="indexterm" data-primary="contributors" id="idp440464"/></p><p>If you include at least part of the sentence the error appears in,
+    that makes it easy for me to search. Page and section numbers are fine,
+    too, but not as easy to work with. Thanks!</p><ul><li><p>First, I have to acknowledge David MacKay’s excellent book,
+          <em>Information Theory, Inference, and Learning
+          Algorithms</em>, which is where I first came to understand
+          Bayesian methods. With his permission, I use several problems from
+          his book as examples.</p></li><li><p>This book also benefited from my interactions with Sanjoy
+          Mahajan, especially in fall 2012, when I audited his class on
+          Bayesian Inference at Olin College.</p></li><li><p>I wrote parts of this book during project nights with the
+          Boston Python User Group, so I would like to thank them for their
+          company and pizza.</p></li><li><p>Jonathan Edwards sent in the first typo.</p></li><li><p>George Purkins found a markup error.</p></li><li><p>Olivier Yiptong sent several helpful suggestions.</p></li><li><p>Yuriy Pasichnyk found several errors.</p></li><li><p>Kristopher Overholt sent a long list of corrections and
+          suggestions.</p></li><li><p>Robert Marcus found a misplaced <em>i</em>.</p></li><li><p>Max Hailperin suggested a clarification in <a data-type="xref" href="ch01.html#intro">Chapter 1</a>.</p></li><li><p>Markus Dobler pointed out that drawing cookies from a bowl
+          with replacement is an unrealistic scenario.</p></li><li><p>Tom Pollard and Paul A. Giannaros spotted a version problem
+          with some of the numbers in the train example.</p></li><li><p>Ram Limbu found a typo and suggested a clarification.</p></li><li><p>In spring 2013, students in my class, Computational Bayesian
+          Statistics, made many helpful corrections and suggestions: Kai
+          Austin, Claire Barnes, Kari Bender, Rachel Boy, Kat Mendoza, Arjun
+          Iyer, Ben Kroop, Nathan Lintz, Kyle McConnaughay, Alec Radford,
+          Brendan Ritter, and Evan Simpson.</p></li><li><p>Greg Marra and Matt Aasted helped me clarify the discussion of
+          <em>The Price is Right</em> problem.</p></li><li><p>Marcus Ogren pointed out that the original statement of the
+          locomotive problem was ambiguous.</p></li><li><p>Jasmine Kwityn and Dan Fauxsmith at O’Reilly Media proofread
+          the book and found many opportunities for improvement.</p></li></ul></section></section>
+  </body>
+</html>

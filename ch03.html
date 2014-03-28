@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="estimation" data-pdf-bookmark="Chapter 3. Estimation"><h1>Estimation</h1><section data-type="sect1" id="a0000001233" data-pdf-bookmark="The dice problem"><h1>The dice problem</h1><p><a data-type="indexterm" data-primary="Dice problem" id="idp1126240"/>Suppose I have a box of dice that contains a 4-sided die, a
+    6-sided die, an 8-sided die, a 12-sided die, and a 20-sided die. If you
+    have ever played
+    <em>Dungeons&amp;Dragons</em>,
+    you know what I am talking about.<a data-type="indexterm" data-primary="Dungeons and Dragons" id="idp1128480"/></p><p>Suppose I select a die from the box at random, roll it, and get a 6.
+    What is the probability that I rolled each die?<a data-type="indexterm" data-primary="dice" id="idp1131120"/></p><p>Let me suggest a three-step strategy for approaching a problem like
+    this.</p><ol><li><p>Choose a representation for the hypotheses.</p></li><li><p>Choose a representation for the data.</p></li><li><p>Write the likelihood function.</p></li></ol><p>In previous examples I used strings to represent hypotheses and
+    data, but for the die problem I’ll use numbers. Specifically, I’ll use the
+    integers 4, 6, 8, 12, and 20 to represent hypotheses:</p><pre data-type="programlisting">    suite = Dice([4, 6, 8, 12, 20])</pre><p>And integers from 1 to 20 for the data. These representations make
+    it easy to write the likelihood function:</p><pre data-type="programlisting">class Dice(Suite):
+    def Likelihood(self, data, hypo):
+        if hypo &lt; data:
+            return 0
+        else:
+            return 1.0/hypo</pre><p>Here’s how <code>Likelihood</code> works. If <code>hypo&lt;data</code>, that means the roll is greater than
+    the number of sides on the die. That can’t happen, so the likelihood is
+    0.</p><p>Otherwise the question is, “Given that there are <code>hypo</code> sides, what is the chance of rolling
+    <code>data</code>?” The answer is <code>1/hypo</code>, regardless of <code>data</code>.</p><p>Here is the statement that does the update (if I roll a 6):</p><pre data-type="programlisting">    suite.Update(6)</pre><p>And here is the posterior distribution:</p><pre data-type="programlisting">4 0.0
+6 0.392156862745
+8 0.294117647059
+12 0.196078431373
+20 0.117647058824</pre><p>After we roll a 6, the probability for the 4-sided die is 0. The
+    most likely alternative is the 6-sided die, but there is still almost a
+    12% chance for the 20-sided die.</p><p>What if we roll a few more times and get 6, 8, 7, 7, 5, and
+    4?</p><pre data-type="programlisting">    for roll in [6, 8, 7, 7, 5, 4]:
+        suite.Update(roll)</pre><p>With this data the 6-sided die is eliminated, and the 8-sided die
+    seems quite likely. Here are the results:</p><pre data-type="programlisting">4 0.0
+6 0.0
+8 0.943248453672
+12 0.0552061280613
+20 0.0015454182665</pre><p>Now the probability is 94% that we are rolling the 8-sided die, and
+    less than 1% for the 20-sided die.</p><p>The dice problem is based on an example I saw in Sanjoy Mahajan’s
+    class on Bayesian inference. You can download the code in this section
+    from <a href="http://thinkbayes.com/dice.py" class="orm:hideurl">http://thinkbayes.com/dice.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000001292" data-pdf-bookmark="The locomotive problem"><h1>The locomotive problem</h1><p><a data-type="indexterm" data-primary="locomotive problem" id="idp1126448"/><a data-type="indexterm" data-primary="Mosteller, Frederick" id="idp1146544"/><a data-type="indexterm" data-primary="German tank problem" id="idp1147152"/>I found the locomotive problem in Frederick Mosteller’s,
+    <em>Fifty Challenging Problems in Probability with
+    Solutions</em> (Dover, 1987):</p><blockquote><p>“A railroad numbers its locomotives in order 1..N. One day you see
+      a locomotive with the number 60. Estimate how many locomotives the
+      railroad has.”</p></blockquote><p>Based on this observation, we know the railroad has 60 or more
+    locomotives. But how many more? To apply Bayesian reasoning, we can break
+    this problem into two steps:</p><ol><li><p>What did we know about <em>N</em> before
+        we saw the data?</p></li><li><p>For any given value of <em>N</em>, what
+        is the likelihood of seeing the data (a locomotive with number
+        60)?</p></li></ol><p>The answer to the first question is the prior. The answer to the
+    second is the likelihood.</p><p>We don’t have much basis to choose a prior, but we can start with
+    something simple and then consider alternatives. Let’s assume that
+    <em>N</em> is equally likely to be any value from
+    1 to 1000.</p><pre data-type="programlisting">    hypos = xrange(1, 1001)</pre><p>Now all we need is a likelihood function. In a hypothetical fleet of
+    <em>N</em> locomotives, what is the probability
+    that we would see number 60? If we assume that there is only one
+    train-operating company (or only one we care about) and that we are
+    equally likely to see any of its locomotives, then the chance of seeing
+    any particular locomotive is <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mn>1</mml:mn>
+
+            <mml:mo>/</mml:mo>
+
+            <mml:mi>N</mml:mi>
+          </mml:mrow>
+        </math>.</p><p>Here’s the likelihood function:<a data-type="indexterm" data-primary="likelihood function" id="idp1157440"/></p><pre data-type="programlisting">class Train(Suite):
+    def Likelihood(self, data, hypo):
+        if hypo &lt; data:
+            return 0
+        else:
+            return 1.0/hypo</pre><p>This might look familiar; the likelihood functions for the
+    locomotive problem and the dice problem are identical.<a data-type="indexterm" data-primary="dice problem" id="idp1158720"/></p><p>Here’s the update:</p><pre data-type="programlisting">    suite = Train(hypos)
+    suite.Update(60)</pre><p>There are too many hypotheses to print, so I plotted the results in
+    <a data-type="xref" href="#fig.train1">Figure 3-1</a>. Not surprisingly, all values of <em>N</em> below 60 have been eliminated.</p><figure id="fig.train1" style="float: True"><img src="images/thba_0301.png"/><figcaption>Posterior distribution for the locomotive problem, based on a
+      uniform prior.</figcaption></figure><p>The most likely value, if you had to guess, is 60. That might not
+    seem like a very good guess; after all, what are the chances that you just
+    happened to see the train with the highest number? Nevertheless, if you
+    want to maximize the chance of getting the answer exactly right, you
+    should guess 60.</p><p>But maybe that’s not the right goal. An alternative is to compute
+    the mean of the posterior distribution:</p><pre data-type="programlisting">def Mean(suite):
+    total = 0
+    for hypo, prob in suite.Items():
+        total += hypo * prob
+    return total
+
+print Mean(suite)</pre><p>Or you could use the very similar method provided by <code>Pmf</code>:</p><pre data-type="programlisting">    print suite.Mean()</pre><p>The mean of the posterior is 333, so that might be a good guess if
+    you wanted to minimize error. If you played this guessing game over and
+    over, using the mean of the posterior as your estimate would minimize the
+    mean squared error over the long run (see <a href="http://en.wikipedia.org/wiki/Minimum_mean_square_error" class="orm:hideurl">http://en.wikipedia.org/wiki/Minimum_mean_square_error</a>).<a data-type="indexterm" data-primary="mean squared error" id="idp1167504"/></p><p>You can download this example from <a href="http://thinkbayes.com/train.py" class="orm:hideurl">http://thinkbayes.com/train.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000001353" data-pdf-bookmark="What about that prior?"><h1>What about that prior?</h1><p>To make any progress on the locomotive problem we had to make
+    assumptions, and some of them were pretty arbitrary. In particular, we
+    chose a uniform prior from 1 to 1000, without much justification for
+    choosing 1000, or for choosing a uniform distribution.<a data-type="indexterm" data-primary="prior distribution" id="idp1171696"/></p><p>It is not crazy to believe that a railroad company might operate
+    1000 locomotives, but a reasonable person might guess more or fewer. So we
+    might wonder whether the posterior distribution is sensitive to these
+    assumptions. With so little data—only one observation—it probably
+    is.</p><p>Recall that with a uniform prior from 1 to 1000, the mean of the
+    posterior is 333. With an upper bound of 500, we get a posterior mean of
+    207, and with an upper bound of 2000, the posterior mean is 552.</p><p>So that’s bad. There are two ways to proceed:</p><ul><li><p>Get more data.</p></li><li><p>Get more background information.</p></li></ul><p>With more data, posterior distributions based on different priors
+    tend to converge. For example, suppose that in addition to train 60 we
+    also see trains 30 and 90. We can update the distribution like
+    this:</p><pre data-type="programlisting">    for data in [60, 30, 90]:
+        suite.Update(data)</pre><p>With these data, the means of the posteriors are</p><table><tbody><tr><td><p>Upper </p></td><td><p> Posterior </p></td></tr><tr><td><p>Bound </p></td><td><p> Mean </p></td></tr><tr><td><p>500 </p></td><td><p> 152 </p></td></tr><tr><td><p>1000 </p></td><td><p> 164</p></td></tr><tr><td><p>2000 </p></td><td><p> 171</p></td></tr></tbody></table><p>So the differences are smaller.</p></section><section data-type="sect1" id="a0000001401" data-pdf-bookmark="An alternative prior"><h1>An alternative prior</h1><p>If more data are not available, another option is to improve the
+    priors by gathering more background information. It is probably not
+    reasonable to assume that a train-operating company with 1000 locomotives
+    is just as likely as a company with only 1.</p><p>With some effort, we could probably find a list of companies that
+    operate locomotives in the area of observation. Or we could interview an
+    expert in rail shipping to gather information about the typical size of
+    companies.</p><p>But even without getting into the specifics of railroad economics,
+    we can make some educated guesses. In most fields, there are many small
+    companies, fewer medium-sized companies, and only one or two very large
+    companies. In fact, the distribution of company sizes tends to follow a
+    power law, as Robert Axtell reports in <em>Science</em> (see
+    <a href="http://www.sciencemag.org/content/293/5536/1818.full.pdf" class="orm:hideurl">http://www.sciencemag.org/content/293/5536/1818.full.pdf</a>).<a data-type="indexterm" data-primary="power law" id="idp1189696"/><a data-type="indexterm" data-primary="Axtell, Robert" id="idp1190304"/></p><p>This law suggests that if there are 1000 companies with fewer than
+    10 locomotives, there might be 100 companies with 100 locomotives, 10
+    companies with 1000, and possibly one company with 10,000
+    locomotives.</p><p>Mathematically, a power law means that the number of companies with
+    a given size is inversely proportional to size, or</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>PMF</mml:mi>
+
+            <mml:mrow>
+              <mml:mo>(</mml:mo>
+
+              <mml:mi>x</mml:mi>
+
+              <mml:mo>)</mml:mo>
+            </mml:mrow>
+
+            <mml:mo>∝</mml:mo>
+
+            <mml:msup>
+              <mml:mfenced close=")" open="(" separators="">
+                <mml:mfrac>
+                  <mml:mn>1</mml:mn>
+
+                  <mml:mi>x</mml:mi>
+                </mml:mfrac>
+              </mml:mfenced>
+
+              <mml:mi>α</mml:mi>
+            </mml:msup>
+          </mml:mrow>
+        </math></div><p>where <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>PMF</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>x</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math> is the probability mass function of <em>x</em> and <em>α</em> is a
+    parameter that is often near 1.</p><p>We can construct a power law prior like this:</p><pre data-type="programlisting">class Train(Dice):
+
+    def __init__(self, hypos, alpha=1.0):
+        Pmf.__init__(self)
+        for hypo in hypos:
+            self.Set(hypo, hypo**(-alpha))
+        self.Normalize()</pre><p>And here’s the code that constructs the prior:</p><pre data-type="programlisting">    hypos = range(1, 1001)
+    suite = Train(hypos)</pre><p>Again, the upper bound is arbitrary, but with a power law prior, the
+    posterior is less sensitive to this choice.</p><p><a data-type="xref" href="#fig.train4">Figure 3-2</a> shows the new posterior based on the
+    power law, compared to the posterior based on the uniform prior. Using the
+    background information represented in the power law prior, we can all but
+    eliminate values of <em>N</em> greater than
+    700.</p><figure id="fig.train4" style="float: True"><img src="images/thba_0302.png"/><figcaption>Posterior distribution based on a power law prior, compared to a
+      uniform prior.</figcaption></figure><p>If we start with this prior and observe trains 30, 60, and 90, the
+    means of the posteriors are:</p><table><tbody><tr><td><p> Upper </p></td><td><p> Posterior </p></td></tr><tr><td><p>Bound </p></td><td><p> Mean </p></td></tr><tr><td><p>500 </p></td><td><p> 131 </p></td></tr><tr><td><p>1000 </p></td><td><p> 133 </p></td></tr><tr><td><p>2000 </p></td><td><p> 134 </p></td></tr></tbody></table><p>Now the differences are much smaller. In fact, with an arbitrarily
+    large upper bound, the mean converges on 134.</p><p>So the power law prior is more realistic, because it is based on
+    general information about the size of companies, and it behaves better in
+    practice.</p><p>You can download the examples in this section from <a href="http://thinkbayes.com/train3.py" class="orm:hideurl">http://thinkbayes.com/train3.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="credible" data-pdf-bookmark="Credible intervals"><h1>Credible intervals</h1><p>Once you have computed a posterior distribution, it is often useful
+    to summarize the results with a single point estimate or an interval. For
+    point estimates it is common to use the mean, median, or the value with
+    maximum likelihood.<a data-type="indexterm" data-primary="credible interval" id="idp1216048"/><a data-type="indexterm" data-primary="maximum likelihood" id="idp1216816"/></p><p>For intervals we usually report two values computed so that there is
+    a 90% chance that the unknown value falls between them (or any other
+    probability). These values define a <strong>credible
+    interval</strong>.</p><p>A simple way to compute a credible interval is to add up the
+    probabilities in the posterior distribution and record the values that
+    correspond to probabilities 5% and 95%. In other words, the 5th and 95th
+    percentiles.<a data-type="indexterm" data-primary="percentile" id="idp1217840"/></p><p><code>thinkbayes</code> provides
+    a function that computes percentiles:</p><pre data-type="programlisting">def Percentile(pmf, percentage):
+    p = percentage / 100.0
+    total = 0
+    for val, prob in pmf.Items():
+        total += prob
+        if total &gt;= p:
+            return val</pre><p>And here’s the code that uses it:</p><pre data-type="programlisting">    interval = Percentile(suite, 5), Percentile(suite, 95)
+    print interval</pre><p>For the previous example—the locomotive problem with a power law
+    prior and three trains—the 90% credible interval is <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mo>(</mml:mo>
+
+            <mml:mn>91</mml:mn>
+
+            <mml:mo>,</mml:mo>
+
+            <mml:mn>243</mml:mn>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math>. The width of this range suggests, correctly, that we
+    are still quite uncertain about how many locomotives there are.</p></section><section data-type="sect1" id="a0000001503" data-pdf-bookmark="Cumulative distribution functions"><h1>Cumulative distribution functions</h1><p>In the previous section we computed percentiles by iterating through
+    the values and probabilities in a Pmf. If we need to compute more than a
+    few percentiles, it is more efficient to use a cumulative distribution
+    function, or Cdf.<a data-type="indexterm" data-primary="cumulative distribution function" id="idp1227232"/><a data-type="indexterm" data-primary="CDF" id="idp1226736"/></p><p>Cdfs and Pmfs are equivalent in the sense that they contain the same
+    information about the distribution, and you can always convert from one to
+    the other. The advantage of the Cdf is that you can compute percentiles
+    more efficiently.</p><p><code>thinkbayes</code> provides a <code>Cdf</code> class that represents a cumulative
+    distribution function. <code>Pmf</code> provides a
+    method that makes the corresponding Cdf:</p><pre data-type="programlisting">cdf = suite.MakeCdf()</pre><p>And <code>Cdf</code> provides a function named
+    <code>Percentile</code></p><pre data-type="programlisting">    interval = cdf.Percentile(5), cdf.Percentile(95)</pre><p>Converting from a Pmf to a Cdf takes time proportional to the number
+    of values, <code>len(pmf)</code>. The Cdf stores the
+    values and probabilities in sorted lists, so looking up a probability to
+    get the corresponding value takes “log time”: that is, time proportional
+    to the logarithm of the number of values. Looking up a value to get the
+    corresponding probability is also logarithmic, so Cdfs are efficient for
+    many calculations.</p><p>The examples in this section are in <a href="http://thinkbayes.com/train3.py" class="orm:hideurl">http://thinkbayes.com/train3.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000001529" data-pdf-bookmark="The German tank problem"><h1>The German tank problem</h1><p>During World War II, the Economic Warfare Division of the American
+    Embassy in London used statistical analysis to estimate German production
+    of tanks and other equipment.<a data-type="noteref" id="idp1235248-marker" href="ch03.html#idp1235248"><sup>2</sup></a></p><p>The Western Allies had captured log books, inventories, and repair
+    records that included chassis and engine serial numbers for individual
+    tanks.</p><p>Analysis of these records indicated that serial numbers were
+    allocated by manufacturer and tank type in blocks of 100 numbers, that
+    numbers in each block were used sequentially, and that not all numbers in
+    each block were used. So the problem of estimating German tank production
+    could be reduced, within each block of 100 numbers, to a form of the
+    locomotive problem.</p><p>Based on this insight, American and British analysts produced
+    estimates substantially lower than estimates from other forms of
+    intelligence. And after the war, records indicated that they were
+    substantially more accurate.</p><p>They performed similar analyses for tires, trucks, rockets, and
+    other equipment, yielding accurate and actionable economic
+    intelligence.</p><p>The German tank problem is historically interesting; it is also a
+    nice example of real-world application of statistical estimation. So far
+    many of the examples in this book have been toy problems, but it will not
+    be long before we start solving real problems. I think it is an advantage
+    of Bayesian analysis, especially with the computational approach we are
+    taking, that it provides such a short path from a basic introduction to
+    the research frontier.</p></section><section data-type="sect1" id="a0000001540" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>Among Bayesians, there are two approaches to choosing prior
+    distributions. Some recommend choosing the prior that best represents
+    background information about the problem; in that case the prior is said
+    to be <strong>informative</strong>. The problem with using
+    an informative prior is that people might use different background
+    information (or interpret it differently). So informative priors often
+    seem subjective.<a data-type="indexterm" data-primary="informative prior" id="idp1236000"/></p><p>The alternative is a so-called <strong>uninformative
+    prior</strong>, which is intended to be as unrestricted as possible, in
+    order to let the data speak for themselves. In some cases you can identify
+    a unique prior that has some desirable property, like representing minimal
+    prior information about the estimated quantity.<a data-type="indexterm" data-primary="uninformative prior" id="idp1244512"/></p><p>Uninformative priors are appealing because they seem more objective.
+    But I am generally in favor of using informative priors. Why? First,
+    Bayesian analysis is always based on modeling decisions. Choosing the
+    prior is one of those decisions, but it is not the only one, and it might
+    not even be the most subjective. So even if an uninformative prior is more
+    objective, the entire analysis is still subjective.<a data-type="indexterm" data-primary="modeling" id="idp1250384"/><a data-type="indexterm" data-primary="subjectivity" id="idp1251536"/><a data-type="indexterm" data-primary="objectivity" id="idp1238176"/></p><p>Also, for most practical problems, you are likely to be in one of
+    two regimes: either you have a lot of data or not very much. If you have a
+    lot of data, the choice of the prior doesn’t matter very much; informative
+    and uninformative priors yield almost the same results. We’ll see an
+    example like this in the next chapter.</p><p>But if, as in the locomotive problem, you don’t have much data,
+    using relevant background information (like the power law distribution)
+    makes a big difference.<a data-type="indexterm" data-primary="locomotive problem" id="idp1249488"/></p><p>And if, as in the German tank problem, you have to make
+    life-and-death decisions based on your results, you should probably use
+    all of the information at your disposal, rather than maintaining the
+    illusion of objectivity by pretending to know less than you do.<a data-type="indexterm" data-primary="German tank problem" id="idp1251904"/></p></section><section data-type="sect1" id="a0000001552" data-pdf-bookmark="Exercises"><h1>Exercises</h1><div id="a0000001555" class="exercise" data-type="example"><h5/><p>To write a likelihood function for the locomotive problem, we
+        had to answer this question: “If the railroad has <em>N</em> locomotives, what is the probability that we
+        see number 60?”</p><p>The answer depends on what sampling process we use when we
+        observe the locomotive. In this chapter, I resolved the ambiguity by
+        specifying that there is only one train-operating company (or only one
+        that we care about).</p><p>But suppose instead that there are many companies with different
+        numbers of trains. And suppose that you are equally likely to see any
+        train operated by any company. In that case, the likelihood function
+        is different because you are more likely to see a train operated by a
+        large company.</p><p>As an exercise, implement the likelihood function for this
+        variation of the locomotive problem, and compare the results.</p></div></section><aside data-type="footnotes"><p data-type="footnote" id="idp1235248"><a href="ch03.html#idp1235248-marker"><sup>2</sup></a> Ruggles and Brodie, “An Empirical Approach to Economic
+        Intelligence in World War II,” <em>Journal of the American
+        Statistical Association</em>, Vol. 42, No. 237 (March
+        1947).</p></aside></section>
+  </body>
+</html>

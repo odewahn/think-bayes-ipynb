@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="a0000004887" data-pdf-bookmark="Chapter 11. Hypothesis Testing"><h1>Hypothesis Testing</h1><section data-type="sect1" id="a0000004889" data-pdf-bookmark="Back to the Euro problem"><h1>Back to the Euro problem</h1><p>In <a data-type="xref" href="ch04.html#euro">“The Euro problem”</a> I presented a problem from MacKay’s
+    <em>Information Theory, Inference, and Learning
+    Algorithms</em>:<a data-type="indexterm" data-primary="MacKay, David" id="idp2685344"/></p><blockquote><p>A statistical statement appeared in “The Guardian” on Friday
+      January 4, 2002:</p><blockquote><p>When spun on edge 250 times, a Belgian one-euro coin came up
+        heads 140 times and tails 110. ‘It looks very suspicious to me,’ said
+        Barry Blight, a statistics lecturer at the London School of Economics.
+        ‘If the coin were unbiased, the chance of getting a result as extreme
+        as that would be less than 7%.’</p></blockquote><p>But do these data give evidence that the coin is biased rather
+      than fair?</p></blockquote><p>We estimated the probability that the coin would land face up, but
+    we didn’t really answer MacKay’s question: Do the data give evidence that
+    the coin is biased?<a data-type="indexterm" data-primary="Euro problem" id="idp2685744"/><a data-type="indexterm" data-primary="evidence" id="evidence-ch11"/></p><p>In <a data-type="xref" href="ch04.html#more">Chapter 4</a> I proposed that data are in favor of a
+    hypothesis if the data are more likely under the hypothesis than under the
+    alternative or, equivalently, if the Bayes factor is greater than
+    1.<a data-type="indexterm" data-primary="hypothesis testing" id="idp2690656"/><a data-type="indexterm" data-primary="Bayes factor" id="bayes-factor-ch11"/></p><p>In the Euro example, we have two hypotheses to consider: I’ll use
+    <em>F</em> for the hypothesis that the coin is
+    fair and <em>B</em> for the hypothesis that it is
+    biased.<a data-type="indexterm" data-primary="fair coin" id="idp2694288"/><a data-type="indexterm" data-primary="biased coin" id="idp2694896"/></p><p>If the coin is fair, it is easy to compute the likelihood of the
+    data, <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>D</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>F</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math>. In fact, we already wrote the function that does
+    it.</p><pre data-type="programlisting">    def Likelihood(self, data, hypo):
+        x = hypo / 100.0
+        head, tails = data
+        like = x**heads * (1-x)**tails
+        return like</pre><p>To use it we can create a <code>Euro</code>
+    suite and invoke <code>Likelihood</code>:</p><pre data-type="programlisting">    suite = Euro()
+    likelihood = suite.Likelihood(data, 50)</pre><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>D</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>F</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math> is <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mn>5</mml:mn>
+
+            <mml:mo>.</mml:mo>
+
+            <mml:mn>5</mml:mn>
+
+            <mml:mo>·</mml:mo>
+
+            <mml:msup>
+              <mml:mn>10</mml:mn>
+
+              <mml:mrow>
+                <mml:mo>-</mml:mo>
+
+                <mml:mn>76</mml:mn>
+              </mml:mrow>
+            </mml:msup>
+          </mml:mrow>
+        </math>, which doesn’t tell us much except that the
+    probability of seeing any particular dataset is very small. It takes two
+    likelihoods to make a ratio, so we also have to compute <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>D</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>B</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math>.</p><p>It is not obvious how to compute the likelihood of <em>B</em>, because it’s not obvious what “biased”
+    means.</p><p>One possibility is to cheat and look at the data before we define
+    the hypothesis. In that case we would say that “biased” means that the
+    probability of heads is 140/250.</p><pre data-type="programlisting">    actual_percent = 100.0 * 140 / 250
+    likelihood = suite.Likelihood(data, actual_percent)</pre><p>This version of <em>B</em> I call <code>B_cheat</code>; the likelihood of <code>b_cheat</code> is <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mn>34</mml:mn>
+
+            <mml:mo>·</mml:mo>
+
+            <mml:msup>
+              <mml:mn>10</mml:mn>
+
+              <mml:mrow>
+                <mml:mo>-</mml:mo>
+
+                <mml:mn>76</mml:mn>
+              </mml:mrow>
+            </mml:msup>
+          </mml:mrow>
+        </math> and the likelihood ratio is 6.1. So we would say that
+    the data are evidence in favor of this version of <em>B</em>.</p><p>But using the data to formulate the hypothesis is obviously bogus.
+    By that definition, any dataset would be evidence in favor of <em>B</em>, unless the observed percentage of heads is
+    exactly 50%.<a data-type="indexterm" data-primary="bogus" id="idp2724704"/></p></section><section data-type="sect1" id="suitelike" data-pdf-bookmark="Making a fair comparison"><h1>Making a fair comparison</h1><p>To make a legitimate comparison, we have to define <em>B</em> without looking at the data. So let’s try a
+    different definition. If you inspect a Belgian Euro coin, you might notice
+    that the “heads” side is more prominent than the “tails” side. You might
+    expect the shape to have some effect on <em>x</em>, but be unsure whether it makes heads more or
+    less likely. So you might say “I think the coin is biased so that
+    <em>x</em> is either 0.6 or 0.4, but I am not sure
+    which.”</p><p>We can think of this version, which I’ll call <code>B_two</code> as a hypothesis made up of
+    two sub-hypotheses. We can compute the likelihood for each sub-hypothesis
+    and then compute the average likelihood.</p><pre data-type="programlisting">    like40 = suite.Likelihood(data, 40)
+    like60 = suite.Likelihood(data, 60)
+    likelihood = 0.5 * like40 + 0.5 * like60</pre><p>The likelihood ratio (or Bayes factor) for <code>b_two</code> is 1.3, which means the data provide weak
+    evidence in favor of <code>b_two</code>.<a data-type="indexterm" data-primary="evidence" data-startref="evidence-ch11" id="idp2730768"/><a data-type="indexterm" data-primary="likelihood ratio" id="idp2731712"/><a data-type="indexterm" data-primary="Bayes factor" data-startref="bayes-factor-ch11" id="idp2732912"/></p><p>More generally, suppose you suspect that the coin is biased, but you
+    have no clue about the value of <em>x</em>. In
+    that case you might build a Suite, which I call <code>b_uniform</code>, to represent sub-hypotheses from 0 to
+    100.</p><pre data-type="programlisting">    b_uniform = Euro(xrange(0, 101))
+    b_uniform.Remove(50)
+    b_uniform.Normalize()</pre><p>I initialize <code>b_uniform</code> with vales from 0 to 100. I removed the
+    sub-hypothesis that <em>x</em> is 50%, because if
+    <em>x</em> is 50% the coin is fair, but it has
+    almost no effect on the result whether you remove it or not.</p><p>To compute the likelihood of <code>b_uniform</code> we compute the likelihood of each
+    sub-hypothesis and accumulate a weighted average.</p><pre data-type="programlisting">def SuiteLikelihood(suite, data):
+    total = 0
+    for hypo, prob in suite.Items():
+        like = suite.Likelihood(data, hypo)
+        total += prob * like
+    return total</pre><p>The likelihood ratio for <code>b_uniform</code> is 0.47, which means that the data are
+    weak evidence against <code>b_uniform</code>, compared to <em>F</em>.<a data-type="indexterm" data-primary="likelihood" id="idp2738640"/></p><p>If you think about the computation performed by <code>SuiteLikelihood</code>, you might notice
+    that it is similar to an update. To refresh your memory, here’s the
+    <code>Update</code> function:</p><pre data-type="programlisting">    def Update(self, data):
+        for hypo in self.Values():
+            like = self.Likelihood(data, hypo)
+            self.Mult(hypo, like)
+        return self.Normalize()</pre><p>And here’s <code>Normalize</code>:</p><pre data-type="programlisting">    def Normalize(self):
+        total = self.Total()
+        
+        factor = 1.0 / total
+        for x in self.d:
+            self.d[x] *= factor
+
+        return total</pre><p>The return value from <code>Normalize</code>
+    is the total of the probabilities in the Suite, which is the average of
+    the likelihoods for the sub-hypotheses, weighted by the prior
+    probabilities. And <code>Update</code> passes this
+    value along, so instead of using <code>SuiteLikelihood</code>, we could compute the likelihood
+    of <code>b_uniform</code> like
+    this:</p><pre data-type="programlisting">    likelihood = b_uniform.Update(data)</pre></section><section data-type="sect1" id="a0000005000" data-pdf-bookmark="The triangle prior"><h1>The triangle prior</h1><p>In <a data-type="xref" href="ch04.html#more">Chapter 4</a> we also considered a triangle-shaped
+    prior that gives higher probability to values of <em>x</em> near 50%. If we think of this prior as a suite of
+    sub-hypotheses, we can compute its likelihood like this:<a data-type="indexterm" data-primary="triangle distribution" id="idp2750096"/></p><pre data-type="programlisting">    b_triangle = TrianglePrior()
+    likelihood = b_triangle.Update(data)</pre><p>The likelihood ratio for <code>b_triangle</code> is 0.84, compared to <em>F</em>, so again we would say that the data are weak
+    evidence against <em>B</em>.</p><p>The following table shows the priors we have considered, the
+    likelihood of each, and the likelihood ratio (or Bayes factor) relative to
+    <em>F</em>.<a data-type="indexterm" data-primary="likelihood ratio" id="idp2754432"/></p><table><tbody><tr><td><p>Hypothesis </p></td><td><p> Likelihood </p></td><td><p> Bayes </p></td></tr><tr><td/><td><p> <math xmlns="http://www.w3.org/1998/Math/MathML">
+                    <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+                      <mml:mo>×</mml:mo>
+
+                      <mml:msup>
+                        <mml:mn>10</mml:mn>
+
+                        <mml:mrow>
+                          <mml:mo>-</mml:mo>
+
+                          <mml:mn>76</mml:mn>
+                        </mml:mrow>
+                      </mml:msup>
+                    </mml:mrow>
+                  </math> </p></td><td><p> Factor </p></td></tr><tr><td><p><em>F</em> </p></td><td><p> 5.5 </p></td><td><p> – </p></td></tr><tr><td><p><code>B_cheat</code> </p></td><td><p> 34 </p></td><td><p> 6.1 </p></td></tr><tr><td><p><code>B_two</code> </p></td><td><p> 7.4 </p></td><td><p> 1.3 </p></td></tr><tr><td><p><code>B_uniform</code> </p></td><td><p> 2.6 </p></td><td><p> 0.47 </p></td></tr><tr><td><p><code>B_triangle</code> </p></td><td><p> 4.6 </p></td><td><p> 0.84 </p></td></tr></tbody></table><p>Depending on which definition we choose, the data might provide
+    evidence for or against the hypothesis that the coin is biased, but in
+    either case it is relatively weak evidence.</p><p>In summary, we can use Bayesian hypothesis testing to compare the
+    likelihood of <em>F</em> and <em>B</em>, but we have to do some work to specify precisely
+    what <em>B</em> means. This specification depends
+    on background information about coins and their behavior when spun, so
+    people could reasonably disagree about the right definition.</p><p>My presentation of this example follows David MacKay’s discussion,
+    and comes to the same conclusion. You can download the code I used in this
+    chapter from <a href="http://thinkbayes.com/euro3.py" class="orm:hideurl">http://thinkbayes.com/euro3.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000005084" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>The Bayes factor for <code>B_uniform</code> is 0.47, which means that the data
+    provide evidence against this hypothesis, compared to <em>F</em>. In the previous section I characterized this
+    evidence as “weak,” but didn’t say why.</p><p>Part of the answer is historical. Harold Jeffreys, an early
+    proponent of Bayesian statistics, suggested a scale for interpreting Bayes
+    factors:</p><table><tbody><tr><td><p>Bayes </p></td><td><p> Strength </p></td></tr><tr><td><p>Factor </p></td><td/></tr><tr><td><p>1 – 3 </p></td><td><p> Barely worth mentioning </p></td></tr><tr><td><p>3 – 10 </p></td><td><p> Substantial </p></td></tr><tr><td><p>10 – 30 </p></td><td><p> Strong </p></td></tr><tr><td><p>30 – 100 </p></td><td><p> Very strong </p></td></tr><tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+                    <mml:mo xmlns:mml="http://www.w3.org/1998/Math/MathML">&gt;</mml:mo>
+                  </math> 100 </p></td><td><p> Decisive </p></td></tr></tbody></table><p>In the example, the Bayes factor is 0.47 in favor of <code>B_uniform</code>, so it is 2.1 in favor is
+    <em>F</em>, which Jeffreys would consider “barely
+    worth mentioning.” Other authors have suggested variations on the wording.
+    To avoid arguing about adjectives, we could think about odds
+    instead.</p><p>If your prior odds are 1:1, and you see evidence with Bayes factor
+    2, your posterior odds are 2:1. In terms of probability, the data changed
+    your degree of belief from 50% to 66%. For most real world problems, that
+    change would be small relative to modeling errors and other sources of
+    uncertainty.</p><p>On the other hand, if you had seen evidence with Bayes factor 100,
+    your posterior odds would be 100:1 or more than 99%. Whether or not you
+    agree that such evidence is “decisive,” it is certainly strong.</p></section><section data-type="sect1" id="a0000005137" data-pdf-bookmark="Exercises"><h1>Exercises</h1><div id="a0000005140" class="exercise" data-type="example"><h5/><p>Some people believe in the existence of extra-sensory perception
+        (ESP); for example, the ability of some people to guess the value of
+        an unseen playing card with probability better than chance.<a data-type="indexterm" data-primary="ESP" id="idp2789584"/><a data-type="indexterm" data-primary="extra-sensory perception" id="idp2790848"/></p><p>What is your prior degree of belief in this kind of ESP? Do you
+        think it is as likely to exist as not? Or are you more skeptical about
+        it? Write down your prior odds.</p><p>Now compute the strength of the evidence it would take to
+        convince you that ESP is at least 50% likely to exist. What Bayes
+        factor would be needed to make you 90% sure that ESP exists?</p></div><div id="a0000005148" class="exercise" data-type="example"><h5/><p>Suppose that your answer to the previous question is 1000; that
+        is, evidence with Bayes factor 1000 in favor of ESP would be
+        sufficient to change your mind.</p><p>Now suppose that you read a paper in a respectable peer-reviewed
+        scientific journal that presents evidence with Bayes factor 1000 in
+        favor of ESP. Would that change your mind?</p><p>If not, how do you resolve the apparent contradiction? You might
+        find it helpful to read about David Hume’s article, “Of Miracles,” at
+        <a href="http://en.wikipedia.org/wiki/Of_Miracles" class="orm:hideurl">http://en.wikipedia.org/wiki/Of_Miracles</a>.<a data-type="indexterm" data-primary="Hume, David" id="idp2798464"/></p></div></section></section>
+  </body>
+</html>

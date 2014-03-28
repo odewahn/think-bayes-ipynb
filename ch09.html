@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="paintball" data-pdf-bookmark="Chapter 9. Two Dimensions"><h1>Two Dimensions</h1><section data-type="sect1" id="a0000003813" data-pdf-bookmark="Paintball"><h1>Paintball</h1><p>Paintball is a sport in which competing teams try to shoot each
+    other with guns that fire paint-filled pellets that break on impact,
+    leaving a colorful mark on the target. It is usually played in an arena
+    decorated with barriers and other objects that can be used as
+    cover.<a data-type="indexterm" data-primary="Paintball problem" id="idp2243168"/></p><p>Suppose you are playing paintball in an indoor arena 30 feet wide
+    and 50 feet long. You are standing near one of the 30 foot walls, and you
+    suspect that one of your opponents has taken cover nearby. Along the wall,
+    you see several paint spatters, all the same color, that you think your
+    opponent fired recently.</p><p>The spatters are at 15, 16, 18, and 21 feet, measured from the
+    lower-left corner of the room. Based on these data, where do you think
+    your opponent is hiding?</p><p><a data-type="xref" href="#fig.paintball">Figure 9-1</a> shows a diagram of the arena. Using
+    the lower-left corner of the room as the origin, I denote the unknown
+    location of the shooter with coordinates <em>α</em> and <em>β</em>, or
+    <code>alpha</code> and <code>beta</code>. The location of a spatter is labeled
+    <code>x</code>. The angle the opponent shoots at is
+    <em>θ</em> or <code>theta</code>.</p><p>The Paintball problem is a modified version of the Lighthouse
+    problem, a common example of Bayesian analysis. My notation follows the
+    presentation of the problem in D.S. Sivia’s, <em>Data Analysis: a
+    Bayesian Tutorial, Second Edition</em> (Oxford, 2006).<a data-type="indexterm" data-primary="Sivia, D.S." id="idp2249760"/></p><p>You can download the code in this chapter from <a href="http://thinkbayes.com/paintball.py" class="orm:hideurl">http://thinkbayes.com/paintball.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000003843" data-pdf-bookmark="The suite"><h1>The suite</h1><figure id="fig.paintball" style="float: True"><img src="images/thba_0901.png"/><figcaption>Diagram of the layout for the paintball problem.</figcaption></figure><p>To get started, we need a Suite that represents a set of hypotheses
+    about the location of the opponent. Each hypothesis is a pair of
+    coordinates: <code>(alpha, beta)</code>.</p><p>Here is the definition of the Paintball suite:</p><pre data-type="programlisting">class Paintball(thinkbayes.Suite, thinkbayes.Joint):
+
+    def __init__(self, alphas, betas, locations):
+        self.locations = locations
+        pairs = [(alpha, beta) 
+                 for alpha in alphas 
+                 for beta in betas]
+        thinkbayes.Suite.__init__(self, pairs)</pre><p><code>Paintball</code> inherits from <code>Suite</code>, which we have seen before, and <code>Joint</code>, which I will explain soon.<a data-type="indexterm" data-primary="Joint pmf" id="idp2259504"/></p><p><code>alphas</code> is the list of possible
+    values for <code>alpha</code>; <code>betas</code> is the list of values for <code>beta</code>. <code>pairs</code>
+    is a list of all <code>(alpha, beta)</code>
+    pairs.</p><p><code>locations</code> is a list of possible
+    locations along the wall; it is stored for use in <code>Likelihood</code>.</p><p>The room is 30 feet wide and 50 feet long, so here’s the code that
+    creates the suite:</p><pre data-type="programlisting">    alphas = range(0, 31)
+    betas = range(1, 51)
+    locations = range(0, 31)
+
+    suite = Paintball(alphas, betas, locations)</pre><p>This prior distribution assumes that all locations in the room are
+    equally likely. Given a map of the room, we might choose a more detailed
+    prior, but we’ll start simple.</p></section><section data-type="sect1" id="a0000003902" data-pdf-bookmark="Trigonometry"><h1>Trigonometry</h1><p>Now we need a likelihood function, which means we have to figure out
+    the likelihood of hitting any spot along the wall, given the location of
+    the opponent.<a data-type="indexterm" data-primary="likelihood" id="idp2265824"/></p><p>As a simple model, imagine that the opponent is like a rotating
+    turret, equally likely to shoot in any direction. In that case, he is most
+    likely to hit the wall at location <code>alpha</code>, and less likely to hit the wall far away
+    from <code>alpha</code>.<a data-type="indexterm" data-primary="trigonometry" id="idp2270480"/></p><p>With a little trigonometry, we can compute the probability of
+    hitting any spot along the wall. Imagine that the shooter fires a shot at
+    angle <em>θ</em>; the pellet would hit the wall at
+    location <em>x</em>, where</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>x</mml:mi>
+
+            <mml:mo>-</mml:mo>
+
+            <mml:mi>α</mml:mi>
+
+            <mml:mo>=</mml:mo>
+
+            <mml:mi>β</mml:mi>
+
+            <mml:mo form="prefix">tan</mml:mo>
+
+            <mml:mi>θ</mml:mi>
+          </mml:mrow>
+        </math></div><p>Solving this equation for <em>θ</em>
+    yields</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>θ</mml:mi>
+
+            <mml:mo>=</mml:mo>
+
+            <mml:mi>t</mml:mi>
+
+            <mml:mi>a</mml:mi>
+
+            <mml:msup>
+              <mml:mi>n</mml:mi>
+
+              <mml:mrow>
+                <mml:mo>-</mml:mo>
+
+                <mml:mn>1</mml:mn>
+              </mml:mrow>
+            </mml:msup>
+
+            <mml:mfenced close=")" open="(" separators="">
+              <mml:mfrac>
+                <mml:mrow>
+                  <mml:mi>x</mml:mi>
+
+                  <mml:mo>-</mml:mo>
+
+                  <mml:mi>α</mml:mi>
+                </mml:mrow>
+
+                <mml:mi>β</mml:mi>
+              </mml:mfrac>
+            </mml:mfenced>
+          </mml:mrow>
+        </math></div><p>So given a location on the wall, we can find <em>θ</em>.</p><p>Taking the derivative of the first equation with respect to
+    <em>θ</em> yields</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mfrac>
+              <mml:mrow>
+                <mml:mi>d</mml:mi>
+
+                <mml:mi>x</mml:mi>
+              </mml:mrow>
+
+              <mml:mrow>
+                <mml:mi>d</mml:mi>
+
+                <mml:mi>θ</mml:mi>
+              </mml:mrow>
+            </mml:mfrac>
+
+            <mml:mo>=</mml:mo>
+
+            <mml:mfrac>
+              <mml:mi>β</mml:mi>
+
+              <mml:mrow>
+                <mml:msup>
+                  <mml:mo form="prefix">cos</mml:mo>
+
+                  <mml:mn>2</mml:mn>
+                </mml:msup>
+
+                <mml:mi>θ</mml:mi>
+              </mml:mrow>
+            </mml:mfrac>
+          </mml:mrow>
+        </math></div><p>This derivative is what I’ll call the “strafing speed”, which is the
+    speed of the target location along the wall as <em>θ</em> increases. The probability of hitting a given
+    point on the wall is inversely related to strafing speed.<a data-type="indexterm" data-primary="strafing speed" id="idp2296864"/></p><p>If we know the coordinates of the shooter and a location along the
+    wall, we can compute strafing speed:</p><pre data-type="programlisting">def StrafingSpeed(alpha, beta, x):
+    theta = math.atan2(x - alpha, beta)
+    speed = beta / math.cos(theta)**2
+    return speed</pre><p><code>alpha</code> and <code>beta</code> are the coordinates of the shooter;
+    <code>x</code> is the location of a spatter. The
+    result is the derivative of <code>x</code> with
+    respect to <code>theta</code>.</p><p>Now we can compute a Pmf that represents the probability of hitting
+    any location on the wall. <code>MakeLocationPmf</code> takes <code>alpha</code> and <code>beta</code>, the coordinates of the shooter, and
+    <code>locations</code>, a list of possible values of
+    <code>x</code>.</p><pre data-type="programlisting">def MakeLocationPmf(alpha, beta, locations):
+    pmf = thinkbayes.Pmf()
+    for x in locations:
+        prob = 1.0 / StrafingSpeed(alpha, beta, x)
+        pmf.Set(x, prob)
+    pmf.Normalize()
+    return pmf</pre><p><code>MakeLocationPmf</code> computes the
+    probability of hitting each location, which is inversely related to
+    strafing speed. The result is a Pmf of locations and their
+    probabilities.</p><p><a data-type="xref" href="#fig.paintball1">Figure 9-2</a> shows the Pmf of location with
+    <code>alpha = 10</code> and a range of values for
+    <code>beta</code>. For all values of beta the most
+    likely spatter location is <code>x = 10</code>; as
+    <code>beta</code> increases, so does the spread of
+    the Pmf.</p><figure id="fig.paintball1" style="float: none"><img src="images/thba_0903.png"/><figcaption>PMF of location given alpha=10, for several values of
+      beta.</figcaption></figure></section><section data-type="sect1" id="a0000004004" data-pdf-bookmark="Likelihood"><h1>Likelihood</h1><p>Now all we need is a likelihood function. We can use <code>MakeLocationPmf</code> to compute the likelihood of any
+    value of <code>x</code>, given the coordinates of
+    the opponent.<a data-type="indexterm" data-primary="likelihood" id="idp2312608"/></p><pre data-type="programlisting">    def Likelihood(self, data, hypo):
+        alpha, beta = hypo
+        x = data
+        pmf = MakeLocationPmf(alpha, beta, self.locations)
+        like = pmf.Prob(x)
+        return like</pre><p>Again, <code>alpha</code> and <code>beta</code> are the hypothetical coordinates of the
+    shooter, and <code>x</code> is the location of an
+    observed spatter.</p><p><code>pmf</code> contains the probability of
+    each location, given the coordinates of the shooter. From this Pmf, we
+    select the probability of the observed location.</p><p>And we’re done. To update the suite, we can use <code>UpdateSet</code>, which is inherited from <code>Suite</code>.</p><pre data-type="programlisting">suite.UpdateSet([15, 16, 18, 21])</pre><p>The result is a distribution that maps each <code>(alpha, beta)</code> pair to a posterior
+    probability.</p></section><section data-type="sect1" id="a0000004033" data-pdf-bookmark="Joint distributions"><h1>Joint distributions</h1><p>When each value in a distribution is a tuple of variables, it is
+    called a <strong>joint distribution</strong> because it
+    represents the distributions of the variables together, that is “jointly”.
+    A joint distribution contains the distributions of the variables, as well
+    information about the relationships among them.<a data-type="indexterm" data-primary="joint distribution" id="idp2320256"/></p><p>Given a joint distribution, we can compute the distributions of each
+    variable independently, which are called the <strong>marginal distributions</strong>.<a data-type="indexterm" data-primary="marginal distribution" id="idp2321072"/><a data-type="indexterm" data-primary="Joint" id="idp2322256"/></p><p><code>thinkbayes.Joint</code> provides a
+    method that computes marginal distributions:</p><pre data-type="programlisting"># class Joint:
+
+    def Marginal(self, i):
+        pmf = Pmf()
+        for vs, prob in self.Items():
+            pmf.Incr(vs[i], prob)
+        return pmf</pre><p><code>i</code> is the index of the variable we
+    want; in this example <code>i=0</code> indicates the
+    distribution of <code>alpha</code>, and <code>i=1</code> indicates the distribution of <code>beta</code>.</p><p>Here’s the code that extracts the marginal distributions:</p><pre data-type="programlisting">    marginal_alpha = suite.Marginal(0)
+    marginal_beta = suite.Marginal(1)</pre><p><a data-type="xref" href="#fig.paintball2">Figure 9-3</a> shows the results (converted to
+    CDFs). The median value for <code>alpha</code> is
+    18, near the center of mass of the observed spatters. For <code>beta</code>, the most likely values are close to the
+    wall, but beyond 10 feet the distribution is almost uniform, which
+    indicates that the data do not distinguish strongly between these possible
+    locations.</p><figure id="fig.paintball2" style="float: none"><img src="images/thba_0902.png"/><figcaption>Posterior CDFs for alpha and beta, given the data.</figcaption></figure><p>Given the posterior marginals, we can compute credible intervals for
+    each coordinate independently:<a data-type="indexterm" data-primary="credible interval" id="idp2332000"/></p><pre data-type="programlisting">    print 'alpha CI', marginal_alpha.CredibleInterval(50)
+    print 'beta CI', marginal_beta.CredibleInterval(50)</pre><p>The 50% credible intervals are <code>(14,
+    21)</code> for <code>alpha</code> and <code>(5, 31)</code> for <code>beta</code>. So the data provide evidence that the
+    shooter is in the near side of the room. But it is not strong evidence.
+    The 90% credible intervals cover most of the room!<a data-type="indexterm" data-primary="evidence" id="idp2335536"/></p></section><section data-type="sect1" id="conditional" data-pdf-bookmark="Conditional distributions"><h1>Conditional distributions</h1><p>The marginal distributions contain information about the variables
+    independently, but they do not capture the dependence between variables,
+    if any.<a data-type="indexterm" data-primary="independence" id="idp2337360"/><a data-type="indexterm" data-primary="dependence" id="idp2338064"/></p><p>One way to visualize dependence is by computing <strong>conditional distributions</strong>. <code>thinkbayes.Joint</code> provides a method that does
+    that:<a data-type="indexterm" data-primary="conditional distribution" id="idp2339776"/><a data-type="indexterm" data-primary="Joint" id="idp2341296"/></p><pre data-type="programlisting">    def Conditional(self, i, j, val):
+        pmf = Pmf()
+        for vs, prob in self.Items():
+            if vs[j] != val: continue
+            pmf.Incr(vs[i], prob)
+
+        pmf.Normalize()
+        return pmf</pre><p>Again, <code>i</code> is the index of the
+    variable we want; <code>j</code> is the index of the
+    conditioning variable, and <code>val</code> is the
+    conditional value.</p><p>The result is the distribution of the <em>i</em>th variable under the condition that the <em>j</em>th variable is <code>val</code>.</p><p>For example, the following code computes the conditional
+    distributions of <code>alpha</code> for a range of
+    values of <code>beta</code>:</p><pre data-type="programlisting">    betas = [10, 20, 40]
+
+    for beta in betas:
+        cond = suite.Conditional(0, 1, beta)</pre><p><a data-type="xref" href="#fig.paintball3">Figure 9-4</a> shows the results, which we could
+    fully describe as “posterior conditional marginal distributions.”
+    Whew!</p><figure id="fig.paintball3" style="float: True"><img src="images/thba_0904.png"/><figcaption>Posterior distributions for alpha conditioned on several values
+      of beta.</figcaption></figure><p>If the variables were independent, the conditional distributions
+    would all be the same. Since they are all different, we can tell the
+    variables are dependent. For example, if we know (somehow) that <code>beta = 10</code>, the conditional distribution of
+    <code>alpha</code> is fairly narrow. For larger
+    values of <code>beta</code>, the distribution of
+    <code>alpha</code> is wider.<a data-type="indexterm" data-primary="dependence" id="idp2350688"/><a data-type="indexterm" data-primary="independence" id="idp2353392"/></p></section><section data-type="sect1" id="a0000004136" data-pdf-bookmark="Credible intervals"><h1>Credible intervals</h1><p>Another way to visualize the posterior joint distribution is to
+    compute credible intervals. When we looked at credible intervals in <a data-type="xref" href="ch03.html#credible">“Credible intervals”</a>, I skipped over a subtle point: for a given
+    distribution, there are many intervals with the same level of credibility.
+    For example, if you want a 50% credible interval, you could choose any set
+    of values whose probability adds up to 50%.</p><p>When the values are one-dimensional, it is most common to choose the
+    <strong>central credible interval</strong>; for example,
+    the central 50% credible interval contains all values between the 25th and
+    75th percentiles.<a data-type="indexterm" data-primary="central credible interval" id="idp2356400"/></p><p>In multiple dimensions it is less obvious what the right credible
+    interval should be. The best choice might depend on context, but one
+    common choice is the maximum <span class="keep-together">likelihood</span> credible interval, which contains
+    the most likely values that add up to 50% (or some other
+    percentage).<a data-type="indexterm" data-primary="maximum likelihood" id="idp2357072"/></p><p><code>thinkbayes.Joint</code> provides a
+    method that computes maximum likelihood credible intervals.<a data-type="indexterm" data-primary="Joint" id="idp2362448"/></p><pre data-type="programlisting"># class Joint:
+
+    def MaxLikeInterval(self, percentage=90):
+        interval = []
+        total = 0
+
+        t = [(prob, val) for val, prob in self.Items()]
+        t.sort(reverse=True)
+
+        for prob, val in t:
+            interval.append(val)
+            total += prob
+            if total &gt;= percentage/100.0:
+                break
+
+        return interval</pre><p>The first step is to make a list of the values in the suite, sorted
+    in descending order by probability. Next we traverse the list, adding each
+    value to the interval, until the total probability exceeds <code>percentage</code>. The result is a list of values from
+    the suite. Notice that this set of values is not necessarily
+    contiguous.</p><p>To visualize the intervals, I wrote a function that “colors” each
+    value according to how many intervals it appears in:</p><pre data-type="programlisting">def MakeCrediblePlot(suite):
+    d = dict((pair, 0) for pair in suite.Values())
+
+    percentages = [75, 50, 25]
+    for p in percentages:
+        interval = suite.MaxLikeInterval(p)
+        for pair in interval:
+            d[pair] += 1
+
+    return d</pre><p><code>d</code> is a dictionary that maps from
+    each value in the suite to the number of intervals it appears in. The loop
+    computes intervals for several percentages and modifies <code>d</code>.</p><p><a data-type="xref" href="#fig.paintball5">Figure 9-5</a> shows the result. The 25% credible
+    interval is the darkest region near the bottom wall. For higher
+    percentages, the credible interval is bigger, of course, and skewed toward
+    the right side of the room.</p><figure id="fig.paintball5" style="float: True"><img src="images/thba_0905.png"/><figcaption>Credible intervals for the coordinates of the opponent.</figcaption></figure></section><section data-type="sect1" id="a0000004178" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>This chapter shows that the Bayesian framework from the previous
+    chapters can be extended to handle a two-dimensional parameter space. The
+    only difference is that each hypothesis is represented by a tuple of
+    parameters.</p><p>I also presented <code>Joint</code>, which is
+    a parent class that provides methods that apply to joint distributions:
+    <code>Marginal</code>, <code>Conditional</code>, and <code>MakeLikeInterval</code>. In object-oriented terms,
+    <code>Joint</code> is a mixin (see <a href="http://en.wikipedia.org/wiki/Mixin" class="orm:hideurl">http://en.wikipedia.org/wiki/Mixin</a>).<a data-type="indexterm" data-primary="Joint" id="idp2372080"/></p><p>There is a lot of new vocabulary in this chapter, so let’s
+    review:</p><dl><dt>Joint distribution:</dt><dd><p>A distribution that represents all possible values in a
+          multidimensional space and their probabilities. The example in this
+          chapter is a two-dimensional space made up of the coordinates
+          <code>alpha</code> and <code>beta</code>. The joint distribution represents
+          the probability of each (<code>alpha</code>,
+          <code>beta</code>) pair.</p></dd><dt>Marginal distribution:</dt><dd><p>The distribution of one parameter in a joint distribution,
+          treating the other parameters as unknown. For example, <a data-type="xref" href="#fig.paintball2">Figure 9-3</a> shows the distributions of <code>alpha</code> and <code>beta</code> independently.</p></dd><dt>Conditional distribution:</dt><dd><p>The distribution of one parameter in a joint distribution,
+          conditioned on one or more of the other parameters. <a data-type="xref" href="#fig.paintball3">Figure 9-4</a> several distributions for <code>alpha</code>, conditioned on different values of
+          <code>beta</code>.</p></dd></dl><p>Given the joint distribution, you can compute marginal and
+    conditional distributions. With enough conditional distributions, you
+    could re-create the joint distribution, at least approximately. But given
+    the marginal distributions you cannot re-create the joint distribution
+    because you have lost information about the dependence between
+    variables.<a data-type="indexterm" data-primary="joint distribution" id="idp2382464"/><a data-type="indexterm" data-primary="conditional distribution" id="idp2384144"/><a data-type="indexterm" data-primary="marginal distribution" id="idp2384784"/></p><p>If there are <em>n</em> possible values for
+    each of two parameters, most operations on the joint distribution take
+    time proportional to <em>n<sup>2</sup></em>. If there are
+    <em>d</em> parameters, run time is proportional to
+    <em>n<sup>d</sup></em>, which
+    quickly becomes impractical as the number of dimensions increases.</p><p>If you can process a million hypotheses in a reasonable amount of
+    time, you could handle two dimensions with 1000 values for each parameter,
+    or three dimensions with 100 values each, or six dimensions with 10 values
+    each.</p><p>If you need more dimensions, or more values per dimension, there are
+    optimizations you can try. I present an example in <a data-type="xref" href="ch15.html#species">Chapter 15</a>.</p><p>You can download the code in this chapter from <a href="http://thinkbayes.com/paintball.py" class="orm:hideurl">http://thinkbayes.com/paintball.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000004241" data-pdf-bookmark="Exercises"><h1>Exercises</h1><div id="a0000004244" class="exercise" data-type="example"><h5/><p>In our simple model, the opponent is equally likely to shoot in
+        any direction. As an exercise, let’s consider improvements to this
+        model.</p><p>The analysis in this chapter suggests that a shooter is most
+        likely to hit the closest wall. But in reality, if the opponent is
+        close to a wall, he is unlikely to shoot at the wall because he is
+        unlikely to see a target between himself and the wall.</p><p>Design an improved model that takes this behavior into account.
+        Try to find a model that is more realistic, but not too
+        complicated.</p></div></section></section>
+  </body>
+</html>

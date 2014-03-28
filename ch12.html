@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="evidence" data-pdf-bookmark="Chapter 12. Evidence"><h1>Evidence</h1><section data-type="sect1" id="a0000005157" data-pdf-bookmark="Interpreting SAT scores"><h1>Interpreting SAT scores</h1><p>Suppose you are the Dean of Admission at a small engineering college
+    in Massachusetts, and you are considering two candidates, Alice and Bob,
+    whose qualifications are similar in many ways, with the exception that
+    Alice got a higher score on the Math portion of the SAT, a standardized
+    test intended to measure preparation for college-level work in
+    mathematics.<a data-type="indexterm" data-primary="SAT" id="idp2800064"/><a data-type="indexterm" data-primary="standardized test" id="idp2800768"/></p><p>If Alice got 780 and Bob got a 740 (out of a possible 800), you
+    might want to know whether that difference is evidence that Alice is
+    better prepared than Bob, and what the strength of that evidence
+    is.<a data-type="indexterm" data-primary="evidence" id="idp2802496"/></p><p>Now in reality, both scores are very good, and both candidates are
+    probably well prepared for college math. So the real Dean of Admission
+    would probably suggest that we choose the candidate who best demonstrates
+    the other skills and attitudes we look for in students. But as an example
+    of Bayesian hypothesis testing, let’s stick with a narrower question: “How
+    strong is the evidence that Alice is better prepared than Bob?”</p><p>To answer that question, we need to make some modeling decisions.
+    I’ll start with a simplification I know is wrong; then we’ll come back and
+    improve the model. I pretend, temporarily, that all SAT questions are
+    equally difficult. Actually, the designers of the SAT choose questions
+    with a range of difficulty, because that improves the ability to measure
+    statistical differences between test-takers.<a data-type="indexterm" data-primary="modeling" id="idp2812368"/></p><p>But if we choose a model where all questions are equally difficult,
+    we can define a characteristic, <code>p_correct</code>, for each test-taker, which is the
+    probability of answering any question correctly. This simplification makes
+    it easy to compute the likelihood of a given score.</p></section><section data-type="sect1" id="a0000005165" data-pdf-bookmark="The scale"><h1>The scale</h1><p>In order to understand SAT scores, we have to understand the scoring
+    and scaling process. Each test-taker gets a raw score based on the number
+    of correct and incorrect questions. The raw score is converted to a scaled
+    score in the range 200–800.<a data-type="indexterm" data-primary="scaled score" id="idp2809600"/></p><p>In 2009, there were 54 questions on the math SAT. The raw score for
+    each test-taker is the number of questions answered correctly minus a
+    penalty of <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mn>1</mml:mn>
+
+            <mml:mo>/</mml:mo>
+
+            <mml:mn>4</mml:mn>
+          </mml:mrow>
+        </math> point for each question answered incorrectly.</p><p>The College Board, which administers the SAT, publishes the map from
+    raw scores to scaled scores. I have downloaded that data and wrapped it in
+    an Interpolator object that provides a forward lookup (from raw score to
+    scaled) and a reverse lookup (from scaled score to raw).<a data-type="indexterm" data-primary="College Board" id="idp2804960"/></p><p>You can download the code for this example from <a href="http://thinkbayes.com/sat.py" class="orm:hideurl">http://thinkbayes.com/sat.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000005175" data-pdf-bookmark="The prior"><h1>The prior</h1><p>The College Board also publishes the distribution of scaled scores
+    for all test-takers. If we convert each scaled score to a raw score, and
+    divide by the number of questions, the result is an estimate of <code>p_correct</code>. So we can use the
+    distribution of raw scores to model the prior distribution of <code>p_correct</code>.</p><p>Here is the code that reads and processes the data:</p><pre data-type="programlisting">class Exam(object):
+
+    def __init__(self):
+        self.scale = ReadScale()
+        scores = ReadRanks()
+        score_pmf = thinkbayes.MakePmfFromDict(dict(scores))
+        self.raw = self.ReverseScale(score_pmf)
+        self.prior = DivideValues(raw, 54)</pre><p><code>Exam</code> encapsulates the information
+    we have about the exam. <code>ReadScale</code> and
+    <code>ReadRanks</code> read files and return objects
+    that contain the data: <code>self.scale</code> is
+    the <code>Interpolator</code> that converts from raw
+    to scaled scores and back; <code>scores</code> is a
+    list of (score, frequency) pairs.</p><p><code>score_pmf</code> is the Pmf
+    of scaled scores. <code>self.raw</code> is the Pmf
+    of raw scores, and <code>self.prior</code> is the
+    Pmf of <code>p_correct</code>.</p><figure id="fig.satprior" style="float: True"><img src="images/thba_1201.png"/><figcaption>Prior distribution of p_correct for SAT test-takers.</figcaption></figure><p><a data-type="xref" href="#fig.satprior">Figure 12-1</a> shows the prior distribution of
+    <code>p_correct</code>. This
+    distribution is approximately Gaussian, but it is compressed at the
+    extremes. By design, the SAT has the most power to discriminate between
+    test-takers within two standard deviations of the mean, and less power
+    outside that range.<a data-type="indexterm" data-primary="Gaussian distribution" id="idp2824560"/></p><p>For each test-taker, I define a Suite called <code>Sat</code> that represents the distribution of <code>p_correct</code>. Here’s the
+    definition:</p><pre data-type="programlisting">class Sat(thinkbayes.Suite):
+
+    def __init__(self, exam, score):
+        thinkbayes.Suite.__init__(self)
+
+        self.exam = exam
+        self.score = score
+
+        # start with the prior distribution
+        for p_correct, prob in exam.prior.Items():
+            self.Set(p_correct, prob)
+
+        # update based on an exam score
+        self.Update(score)</pre><p><code>__init__</code> takes an
+    Exam object and a scaled score. It makes a copy of the prior distribution
+    and then updates itself based on the exam score.</p><p>As usual, we inherit <code>Update</code> from
+    <code>Suite</code> and provide <code>Likelihood</code>:</p><pre data-type="programlisting">    def Likelihood(self, data, hypo):
+        p_correct = hypo
+        score = data
+
+        k = self.exam.Reverse(score)
+        n = self.exam.max_score
+        like = thinkbayes.EvalBinomialPmf(k, n, p_correct)
+        return like</pre><p><code>hypo</code> is a hypothetical value of
+    <code>p_correct</code>, and <code>data</code> is a scaled score.</p><p>To keep things simple, I interpret the raw score as the number of
+    correct answers, ignoring the penalty for wrong answers. With this
+    simplification, the likelihood is given by the binomial distribution,
+    which computes the probability of <em>k</em>
+    correct responses out of <em>n</em>
+    questions.<a data-type="indexterm" data-primary="binomial distribution" id="idp2834928"/><a data-type="indexterm" data-primary="raw score" id="idp2835424"/></p></section><section data-type="sect1" id="a0000005245" data-pdf-bookmark="Posterior"><h1>Posterior</h1><p><a data-type="xref" href="#fig.satposterior1">Figure 12-2</a> shows the posterior
+    distributions of <code>p_correct</code>
+    for Alice and Bob based on their exam scores. We can see that they
+    overlap, so it is possible that <code>p_correct</code> is actually higher for Bob, but it seems
+    unlikely.</p><figure id="fig.satposterior1" style="float: none"><img src="images/thba_1202.png"/><figcaption>Posterior distributions of p_correct for Alice and Bob.</figcaption></figure><p>Which brings us back to the original question, “How strong is the
+    evidence that Alice is better prepared than Bob?” We can use the posterior
+    distributions of <code>p_correct</code>
+    to answer this question.</p><p>To formulate the question in terms of Bayesian hypothesis testing, I
+    define two <span class="keep-together">hypotheses</span>:</p><ul><li><p><em>A</em>: <code>p_correct</code> is higher for Alice than for
+        Bob.</p></li><li><p><em>B</em>: <code>p_correct</code> is higher for Bob than for
+        Alice.</p></li></ul><p>To compute the likelihood of <em>A</em>, we
+    can enumerate all pairs of values from the posterior distributions and add
+    up the total probability of the cases where <code>p_correct</code> is higher for Alice than for Bob. And we
+    already have a function, <code>thinkbayes.PmfProbGreater</code>, that does that.</p><p>So we can define a Suite that computes the posterior probabilities
+    of <em>A</em> and <em>B</em>:</p><pre data-type="programlisting">class TopLevel(thinkbayes.Suite):
+
+    def Update(self, data):
+        a_sat, b_sat = data
+
+        a_like = thinkbayes.PmfProbGreater(a_sat, b_sat)
+        b_like = thinkbayes.PmfProbLess(a_sat, b_sat)
+        c_like = thinkbayes.PmfProbEqual(a_sat, b_sat)
+
+        a_like += c_like / 2
+        b_like += c_like / 2
+
+        self.Mult('A', a_like)
+        self.Mult('B', b_like)
+
+        self.Normalize()</pre><p>Usually when we define a new Suite, we inherit <code>Update</code> and provide <code>Likelihood</code>. In this case I override <code>Update</code>, because it is easier to evaluate the
+    likelihood of both hypotheses at the same time.</p><p>The data passed to <code>Update</code> are Sat
+    objects that represent the posterior distributions of <code>p_correct</code>.</p><p><code>a_like</code> is the total
+    probability that <code>p_correct</code>
+    is higher for Alice; <code>b_like</code> is that probability that it is higher for
+    Bob.</p><p><code>c_like</code> is the
+    probability that they are “equal,” but this equality is an artifact of the
+    decision to model <code>p_correct</code> with a set of discrete values. If we use
+    more values, <code>c_like</code> is
+    smaller, and in the extreme, if <code>p_correct</code> is continuous, <code>c_like</code> is zero. So I treat <code>c_like</code> as a kind of round-off error and split it
+    evenly between <code>a_like</code> and
+    <code>b_like</code>.</p><p>Here is the code that creates <code>TopLevel</code> and updates it:</p><pre data-type="programlisting">    exam = Exam()
+    a_sat = Sat(exam, 780)
+    b_sat = Sat(exam, 740)
+
+    top = TopLevel('AB')
+    top.Update((a_sat, b_sat))
+    top.Print()</pre><p>The likelihood of <em>A</em> is 0.79 and the
+    likelihood of <em>B</em> is 0.21. The likelihood
+    ratio (or Bayes factor) is 3.8, which means that these test scores are
+    evidence that Alice is better than Bob at answering SAT questions. If we
+    believed, before seeing the test scores, that <em>A</em> and <em>B</em> were
+    equally likely, then after seeing the scores we should believe that the
+    probability of <em>A</em> is 79%, which means
+    there is still a 21% chance that Bob is actually better
+    prepared.<a data-type="indexterm" data-primary="likelihood ratio" id="idp2864480"/><a data-type="indexterm" data-primary="Bayes factor" id="idp2862544"/></p></section><section data-type="sect1" id="a0000005325" data-pdf-bookmark="A better model"><h1>A better model</h1><p>Remember that the analysis we have done so far is based on the
+    simplification that all SAT questions are equally difficult. In reality,
+    some are easier than others, which means that the difference between Alice
+    and Bob might be even smaller.</p><p>But how big is the modeling error? If it is small, we conclude that
+    the first model—based on the simplification that all questions are equally
+    difficult—is good enough. If it’s large, we need a better model.<a data-type="indexterm" data-primary="modeling error" id="idp2861520"/></p><p>In the next few sections, I develop a better model and discover
+    (spoiler alert!) that the modeling error is small. So if you are satisfied
+    with the simple mode, you can skip to the next chapter. If you want to see
+    how the more realistic model works, read on...</p><ul><li><p>Assume that each test-taker has some degree of <code>efficacy</code>, which measures their ability to
+        answer SAT questions.<a data-type="indexterm" data-primary="efficacy" id="idp2868768"/></p></li><li><p>Assume that each question has some level of <code>difficulty</code>.</p></li><li><p>Finally, assume that the chance that a test-taker answers a
+        question correctly is related to <code>efficacy</code> and <code>difficulty</code> according to this
+        function:</p><pre data-type="programlisting">def ProbCorrect(efficacy, difficulty, a=1):
+    return 1 / (1 + math.exp(-a * (efficacy - difficulty)))</pre></li></ul><p>This function is a simplified version of the curve used in <strong>item response theory</strong>, which you can read about at
+    <a href="http://en.wikipedia.org/wiki/Item_response_theory" class="orm:hideurl">http://en.wikipedia.org/wiki/Item_response_theory</a>.
+    <code>efficacy</code> and <code>difficulty</code> are considered to be on the same
+    scale, and the probability of getting a question right depends only on the
+    difference between them.<a data-type="indexterm" data-primary="item response theory" id="idp2874256"/></p><p>When <code>efficacy</code> and <code>difficulty</code> are equal, the probability of getting
+    the question right is 50%. As <code>efficacy</code>
+    increases, this probability approaches 100%. As it decreases (or as
+    <code>difficulty</code> increases), the probability
+    approaches 0%.</p><p>Given the distribution of <code>efficacy</code> across test-takers and the distribution
+    of <code>difficulty</code> across questions, we can
+    compute the expected distribution of raw scores. We’ll do that in two
+    steps. First, for a person with given <code>efficacy</code>, we’ll compute the distribution of raw
+    scores.</p><pre data-type="programlisting">def PmfCorrect(efficacy, difficulties):
+    pmf0 = thinkbayes.Pmf([0])
+
+    ps = [ProbCorrect(efficacy, diff) for diff in difficulties]
+    pmfs = [BinaryPmf(p) for p in ps]
+    dist = sum(pmfs, pmf0)
+    return dist</pre><p><code>difficulties</code> is a list of
+    difficulties, one for each question. <code>ps</code>
+    is a list of probabilities, and <code>pmfs</code> is
+    a list of two-valued Pmf objects; here’s the function that makes
+    them:</p><pre data-type="programlisting">def BinaryPmf(p):
+    pmf = thinkbayes.Pmf()
+    pmf.Set(1, p)
+    pmf.Set(0, 1-p)
+    return pmf</pre><p><code>dist</code> is the sum of these Pmfs.
+    Remember from <a data-type="xref" href="ch05.html#addends">“Addends”</a> that when we add up Pmf objects,
+    the result is the distribution of the sums. In order to use Python’s
+    <code>sum</code> to add up Pmfs, we have to provide
+    <code>pmf0</code> which is the identity for Pmfs, so
+    <code>pmf + pmf0</code> is always <code>pmf</code>.</p><p>If we know a person’s efficacy, we can compute their distribution of
+    raw scores. For a group of people with a different efficacies, the
+    resulting distribution of raw scores is a mixture. Here’s the code that
+    computes the mixture:</p><pre data-type="programlisting"># class Exam:
+
+    def MakeRawScoreDist(self, efficacies):
+        pmfs = thinkbayes.Pmf()
+        for efficacy, prob in efficacies.Items():
+            scores = PmfCorrect(efficacy, self.difficulties)
+            pmfs.Set(scores, prob)
+
+        mix = thinkbayes.MakeMixture(pmfs)
+        return mix</pre><p><code>MakeRawScoreDist</code> takes <code>efficacies</code>, which is a Pmf that represents the
+    distribution of efficacy across test-takers. I assume it is Gaussian with
+    mean 0 and standard deviation 1.5. This choice is mostly arbitrary. The
+    probability of getting a question correct depends on the difference
+    between efficacy and difficulty, so we can choose the units of efficacy
+    and then calibrate the units of difficulty accordingly.<a data-type="indexterm" data-primary="Gaussian distribution" id="idp2888352"/></p><p><code>pmfs</code> is a meta-Pmf that contains
+    one Pmf for each level of efficacy, and maps to the fraction of
+    test-takers at that level. <code>MakeMixture</code>
+    takes the meta-pmf and computes the distribution of the mixture (see <a data-type="xref" href="ch05.html#mixture">“Mixtures”</a>).<a data-type="indexterm" data-primary="meta-Pmf" id="idp2891344"/><a data-type="indexterm" data-primary="MakeMixture" id="idp2890256"/></p></section><section data-type="sect1" id="a0000005417" data-pdf-bookmark="Calibration"><h1>Calibration</h1><p>If we were given the distribution of difficulty, we could use
+    <code>MakeRawScoreDist</code> to
+    compute the distribution of raw scores. But for us the problem is the
+    other way around: we are given the distribution of raw scores and we want
+    to infer the distribution of difficulty.</p><p>I assume that the distribution of difficulty is uniform with
+    parameters <code>center</code> and <code>width</code>. <code>MakeDifficulties</code> makes a list of difficulties
+    with these parameters.<a data-type="indexterm" data-primary="numpy" id="idp2897200"/></p><pre data-type="programlisting">def MakeDifficulties(center, width, n):
+    low, high = center-width, center+width
+    return numpy.linspace(low, high, n)</pre><p>By trying out a few combinations, I found that <code>center=-0.05</code> and <code>width=1.8</code> yield a distribution of raw scores
+    similar to the actual data, as shown in <a data-type="xref" href="#fig.satcalibrate">Figure 12-3</a>.<a data-type="indexterm" data-primary="calibration" id="idp2899296"/></p><figure id="fig.satcalibrate" style="float: none"><img src="images/thba_1203.png"/><figcaption>Actual distribution of raw scores and a model to fit it.</figcaption></figure><p>So, assuming that the distribution of difficulty is uniform, its
+    range is approximately <code>-1.85</code> to
+    <code>1.75</code>, given that efficacy is Gaussian
+    with mean 0 and standard deviation 1.5.<a data-type="indexterm" data-primary="Gaussian distribution" id="idp2904720"/></p><p>The following table shows the range of <code>ProbCorrect</code> for test-takers at different levels
+    of efficacy:</p><table><tbody><tr><td/><td><p> Difficulty
+              </p></td></tr><tr><td><p>Efficacy </p></td><td><p> -1.85 </p></td><td><p> -0.05 </p></td><td><p> 1.75 </p></td></tr><tr><td><p>3.00 </p></td><td><p> 0.99 </p></td><td><p> 0.95 </p></td><td><p> 0.78 </p></td></tr><tr><td><p>1.50 </p></td><td><p> 0.97 </p></td><td><p> 0.82 </p></td><td><p> 0.44 </p></td></tr><tr><td><p>0.00 </p></td><td><p> 0.86 </p></td><td><p> 0.51 </p></td><td><p> 0.15 </p></td></tr><tr><td><p>-1.50 </p></td><td><p> 0.59 </p></td><td><p> 0.19 </p></td><td><p> 0.04 </p></td></tr><tr><td><p>-3.00 </p></td><td><p> 0.24 </p></td><td><p> 0.05 </p></td><td><p> 0.01 </p></td></tr></tbody></table><p>Someone with efficacy 3 (two standard deviations above the mean) has
+    a 99% chance of answering the easiest questions on the exam, and a 78%
+    chance of answering the hardest. On the other end of the range, someone
+    two standard deviations below the mean has only a 24% chance of answering
+    the easiest questions.</p></section><section data-type="sect1" id="a0000005523" data-pdf-bookmark="Posterior distribution of efficacy"><h1>Posterior distribution of efficacy</h1><p>Now that the model is calibrated, we can compute the posterior
+    distribution of efficacy for Alice and Bob. Here is a version of the Sat
+    class that uses the new model:</p><pre data-type="programlisting">class Sat2(thinkbayes.Suite):
+
+    def __init__(self, exam, score):
+        self.exam = exam
+        self.score = score
+
+        # start with the Gaussian prior
+        efficacies = thinkbayes.MakeGaussianPmf(0, 1.5, 3)
+        thinkbayes.Suite.__init__(self, efficacies)
+
+        # update based on an exam score
+        self.Update(score)</pre><p><code>Update</code> invokes
+    <code>Likelihood</code>, which computes
+    the likelihood of a given test score for a hypothetical level of
+    efficacy.</p><pre data-type="programlisting">    def Likelihood(self, data, hypo):
+        efficacy = hypo
+        score = data
+        raw = self.exam.Reverse(score)
+
+        pmf = self.exam.PmfCorrect(efficacy)
+        like = pmf.Prob(raw)
+        return like</pre><p><code>pmf</code> is the distribution of raw
+    scores for a test-taker with the given efficacy; <code>like</code> is the probability of the observed
+    score.</p><p><a data-type="xref" href="#fig.satposterior2">Figure 12-4</a> shows the posterior
+    distributions of efficacy for Alice and Bob. As expected, the location of
+    Alice’s distribution is farther to the right, but again there is some
+    overlap.</p><figure id="fig.satposterior2" style="float: none"><img src="images/thba_1204.png"/><figcaption>Posterior distributions of efficacy for Alice and Bob.</figcaption></figure><p>Using <code>TopLevel</code> again, we compare
+    <em>A</em>, the hypothesis that Alice’s efficacy
+    is higher, and <em>B</em>, the hypothesis that
+    Bob’s is higher. The likelihood ratio is 3.4, a bit smaller than what we
+    got from the simple model (3.8). So this model indicates that the data are
+    evidence in favor of <em>A</em>, but a little
+    weaker than the previous estimate.</p><p>If our prior belief is that <em>A</em> and
+    <em>B</em> are equally likely, then in light of
+    this evidence we would give <em>A</em> a posterior
+    probability of 77%, leaving a 23% chance that Bob’s efficacy is
+    higher.</p></section><section data-type="sect1" id="a0000005562" data-pdf-bookmark="Predictive distribution"><h1>Predictive distribution</h1><p>The analysis we have done so far generates estimates for Alice and
+    Bob’s efficacy, but since efficacy is not directly observable, it is hard
+    to validate the results.<a data-type="indexterm" data-primary="predictive distribution" id="idp2932288"/></p><p>To give the model predictive power, we can use it to answer a
+    related question: “If Alice and Bob take the math SAT again, what is the
+    chance that Alice will do better again?”</p><p>We’ll answer this question in two steps:</p><ul><li><p>We’ll use the posterior distribution of efficacy to generate a
+        predictive distribution of raw score for each test-taker.</p></li><li><p>We’ll compare the two predictive distributions to compute the
+        probability that Alice gets a higher score again.</p></li></ul><p>We already have most of the code we need. To compute the predictive
+    distributions, we can use <code>MakeRawScoreDist</code> again:</p><pre data-type="programlisting">    exam = Exam()
+    a_sat = Sat(exam, 780)
+    b_sat = Sat(exam, 740)
+
+    a_pred = exam.MakeRawScoreDist(a_sat)
+    b_pred = exam.MakeRawScoreDist(b_sat)</pre><p>Then we can find the likelihood that Alice does better on the second
+    test, Bob does better, or they tie:</p><pre data-type="programlisting">    a_like = thinkbayes.PmfProbGreater(a_pred, b_pred)
+    b_like = thinkbayes.PmfProbLess(a_pred, b_pred)
+    c_like = thinkbayes.PmfProbEqual(a_pred, b_pred)</pre><p>The probability that Alice does better on the second exam is 63%,
+    which means that Bob has a 37% chance of doing as well or better.</p><p>Notice that we have more confidence about Alice’s efficacy than we
+    do about the outcome of the next test. The posterior odds are 3:1 that
+    Alice’s efficacy is higher, but only 2:1 that Alice will do better on the
+    next exam.</p></section><section data-type="sect1" id="a0000005586" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>We started this chapter with the question, “How strong is the
+    evidence that Alice is better prepared than Bob?” On the face of it, that
+    sounds like we want to test two hypotheses: either Alice is more prepared
+    or Bob is.</p><p>But in order to compute likelihoods for these hypotheses, we have to
+    solve an estimation problem. For each test-taker we have to find the
+    posterior distribution of either <code>p_correct</code> or <code>efficacy</code>.</p><p>Values like this are called <strong>nuisance
+    parameters</strong> because we don’t care what they are, but we have to
+    estimate them to answer the question we care about.<a data-type="indexterm" data-primary="nuisance parameter" id="idp2940464"/></p><p>One way to visualize the analysis we did in this chapter is to plot
+    the space of these parameters. <code>thinkbayes.MakeJoint</code> takes two Pmfs, computes their
+    joint distribution, and returns a joint pmf of each possible pair of
+    values and its probability.</p><pre data-type="programlisting">def MakeJoint(pmf1, pmf2):
+    joint = Joint()
+    for v1, p1 in pmf1.Items():
+        for v2, p2 in pmf2.Items():
+            joint.Set((v1, v2), p1 * p2)
+    return joint</pre><p>This function assumes that the two distributions are
+    independent.<a data-type="indexterm" data-primary="joint distribution" id="idp2944848"/><a data-type="indexterm" data-primary="independence" id="idp2945600"/></p><p><a data-type="xref" href="#fig.satjoint">Figure 12-5</a> shows the joint posterior
+    distribution of <code>p_correct</code>
+    for Alice and Bob. The diagonal line indicates the part of the space where
+    <code>p_correct</code> is the same for
+    Alice and Bob. To the right of this line, Alice is more prepared; to the
+    left, Bob is more prepared.</p><figure id="fig.satjoint" style="float: none"><img src="images/thba_1205.png"/><figcaption>Joint posterior distribution of p_correct for Alice and
+      Bob.</figcaption></figure><p>In <code>TopLevel.Update</code>, when we
+    compute the likelihoods of <em>A</em> and
+    <em>B</em>, we add up the probability mass on each
+    side of this line. For the cells that fall on the line, we add up the
+    total mass and split it between <em>A</em> and
+    <em>B</em>.</p><p>The process we used in this chapter—estimating nuisance parameters
+    in order to evaluate the likelihood of competing hypotheses—is a common
+    Bayesian approach to problems like this.</p></section></section>
+  </body>
+</html>

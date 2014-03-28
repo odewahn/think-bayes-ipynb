@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="observer" data-pdf-bookmark="Chapter 8. Observer Bias"><h1>Observer Bias</h1><section data-type="sect1" id="a0000003152" data-pdf-bookmark="The Red Line problem"><h1>The Red Line problem</h1><p>In Massachusetts, the Red Line is a subway that connects Cambridge
+    and Boston. When I was working in Cambridge I took the Red Line from
+    Kendall Square to South Station and caught the commuter rail to Needham.
+    During rush hour Red Line trains run every 7–8 minutes, on
+    average.<a data-type="indexterm" data-primary="Red Line problem" id="idp2032032"/><a data-type="indexterm" data-primary="Boston" id="idp2032640"/></p><p>When I arrived at the station, I could estimate the time until the
+    next train based on the number of passengers on the platform. If there
+    were only a few people, I inferred that I just missed a train and expected
+    to wait about 7 minutes. If there were more passengers, I expected the
+    train to arrive sooner. But if there were a large number of passengers, I
+    suspected that trains were not running on schedule, so I would go back to
+    the street level and get a taxi.</p><p>While I was waiting for trains, I thought about how Bayesian
+    estimation could help predict my wait time and decide when I should give
+    up and take a taxi. This chapter presents the analysis I came up
+    with.</p><p>This chapter is based on a project by Brendan Ritter and Kai Austin,
+    who took a class with me at Olin College. The code in this chapter is
+    available from <a href="http://thinkbayes.com/redline.py" class="orm:hideurl">http://thinkbayes.com/redline.py</a>.
+    The code I used to collect data is in <a href="http://thinkbayes.com/redline_data.py" class="orm:hideurl">http://thinkbayes.com/redline_data.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.<a data-type="indexterm" data-primary="Olin College" id="idp2038096"/></p></section><section data-type="sect1" id="a0000003162" data-pdf-bookmark="The model"><h1>The model</h1><p>Before we get to the analysis, we have to make some modeling
+    decisions. First, I will treat passenger arrivals as a Poisson process,
+    which means I assume that passengers are equally likely to arrive at any
+    time, and that they arrive at an unknown rate, <em>λ</em>, measured in passengers per minute. Since I
+    observe passengers during a short period of time, and at the same time
+    every day, I assume that <em>λ</em> is
+    constant.<a data-type="indexterm" data-primary="Poisson process" id="idp2040880"/></p><p>On the other hand, the arrival process for trains is not Poisson.
+    Trains to Boston are supposed to leave from the end of the line (Alewife
+    station) every 7–8 minutes during peak times, but by the time they get to
+    Kendall Square, the time between trains varies between 3 and 12
+    minutes.</p><p>To gather data on the time between trains, I wrote a script that
+    downloads real-time data from <a href="http://www.mbta.com/rider_tools/developers/" class="orm:hideurl">http://www.mbta.com/rider_tools/developers/</a>,
+    selects south-bound trains arriving at Kendall square, and records their
+    arrival times in a database. I ran the script from 4pm to 6pm every
+    weekday for 5 days, and recorded about 15 arrivals per day. Then I
+    computed the time between consecutive arrivals; the distribution of these
+    gaps is shown in <a data-type="xref" href="#fig.redline0">Figure 8-1</a>, labeled <code>z</code>.</p><figure id="fig.redline0" style="float: none"><img src="images/thba_0801.png"/><figcaption>PMF of gaps between trains, based on collected data, smoothed by
+      KDE. z is the actual distribution; zb is the biased distribution seen by
+      passengers.</figcaption></figure><p>If you stood on the platform from 4pm to 6pm and recorded the time
+    between trains, this is the distribution you would see. But if you arrive
+    at some random time (without regard to the train schedule) you would see a
+    different distribution. The average time between trains, as seen by a
+    random passenger, is substantially higher than the true average.</p><p>Why? Because a passenger is more like to arrive during a large
+    interval than a small one. Consider a simple example: suppose that the
+    time between trains is either 5 minutes or 10 minutes with equal
+    probability. In that case the average time between trains is 7.5
+    minutes.</p><p>But a passenger is more likely to arrive during a 10 minute gap than
+    a 5 minute gap; in fact, twice as likely. If we surveyed arriving
+    passengers, we would find that 2/3 of them arrived during a 10 minute gap,
+    and only 1/3 during a 5 minute gap. So the average time between trains, as
+    seen by an arriving passenger, is 8.33 minutes.</p><p>This kind of <strong>observer bias</strong> appears
+    in many contexts. Students think that classes are bigger than they are
+    because more of them are in the big classes. Airline passengers think that
+    planes are fuller than they are because more of them are on full
+    flights.<a data-type="indexterm" data-primary="observer bias" id="idp1973632"/></p><p>In each case, values from the actual distribution are oversampled in
+    proportion to their value. In the Red Line example, a gap that is twice as
+    big is twice as likely to be observed.</p><p>So given the actual distribution of gaps, we can compute the
+    distribution of gaps as seen by passengers. <code>BiasPmf</code> does this computation:</p><pre data-type="programlisting">def BiasPmf(pmf):
+    new_pmf = pmf.Copy()
+
+    for x, p in pmf.Items():
+        new_pmf.Mult(x, x)
+        
+    new_pmf.Normalize()
+    return new_pmf</pre><p><code>pmf</code> is the actual distribution;
+    <code>new_pmf</code> is the biased
+    distribution. Inside the loop, we multiply the probability of each value,
+    <code>x</code>, by the likelihood it will be
+    observed, which is proportional to <code>x</code>.
+    Then we normalize the result.</p><p><a data-type="xref" href="#fig.redline0">Figure 8-1</a> shows the actual distribution of
+    gaps, labeled <code>z</code>, and the distribution
+    of gaps seen by passengers, labeled <code>zb</code>
+    for “z biased”.</p></section><section data-type="sect1" id="a0000003216" data-pdf-bookmark="Wait times"><h1>Wait times</h1><p>Wait time, which I call <code>y</code>, is the
+    time between the arrival of a passenger and the next arrival of a train.
+    Elapsed time, which I call <code>x</code>, is the
+    time between the arrival of the previous train and the arrival of a
+    passenger. I chose these definitions so that <code>zb =
+    x + y</code>.</p><p>Given the distribution of <code>zb</code>, we
+    can compute the distribution of <code>y</code>. I’ll
+    start with a simple case and then generalize. Suppose, as in the previous
+    example, that <code>zb</code> is either 5 minutes
+    with probability 1/3, or 10 minutes with probability 2/3.</p><p>If we arrive at a random time during a 5 minute gap, <code>y</code> is uniform from 0 to 5 minutes. If we arrive
+    during a 10 minute gap, <code>y</code> is uniform
+    from 0 to 10. So the overall distribution is a mixture of uniform
+    distributions weighted according to the probability of each gap.<a data-type="indexterm" data-primary="uniform distribution" id="idp2060800"/></p><p>The following function takes the distribution of <code>zb</code> and computes the distribution of <code>y</code>:</p><pre data-type="programlisting">def PmfOfWaitTime(pmf_zb):
+    metapmf = thinkbayes.Pmf()
+    for gap, prob in pmf_zb.Items():
+        uniform = MakeUniformPmf(0, gap)
+        metapmf.Set(uniform, prob)
+
+    pmf_y = thinkbayes.MakeMixture(metapmf)
+    return pmf_y</pre><p><code>PmfOfWaitTime</code> makes a meta-Pmf
+    that maps from each uniform distribution to its probability. Then it uses
+    <code>MakeMixture</code>, which we saw in <a data-type="xref" href="ch05.html#mixture">“Mixtures”</a>, to compute the mixture.<a data-type="indexterm" data-primary="mixture" id="idp2067760"/><a data-type="indexterm" data-primary="MakeMixture" id="idp2068400"/><a data-type="indexterm" data-primary="meta-Pmf" id="idp2069584"/></p><p><code>PmfOfWaitTime</code> also uses <code>MakeUniformPmf</code>, defined here:</p><pre data-type="programlisting">def MakeUniformPmf(low, high):
+    pmf = thinkbayes.Pmf()
+    for x in MakeRange(low=low, high=high):
+        pmf.Set(x, 1)
+    pmf.Normalize()
+    return pmf</pre><p><code>low</code> and <code>high</code> are the range of the uniform distribution,
+    (both ends included). Finally, <code>MakeUniformPmf</code> uses <code>MakeRange</code>, defined here:</p><pre data-type="programlisting">def MakeRange(low, high, skip=10):
+    return range(low, high+skip, skip)</pre><p><code>MakeRange</code> defines a set of
+    possible values for wait time (expressed in seconds). By default it
+    divides the range into 10 second intervals.</p><p>To encapsulate the process of computing these distributions, I
+    created a class called <code>WaitTimeCalculator</code>:</p><pre data-type="programlisting">class WaitTimeCalculator(object):
+
+    def __init__(self, pmf_z):
+        self.pmf_z = pmf_z
+        self.pmf_zb = BiasPmf(pmf)
+
+        self.pmf_y = self.PmfOfWaitTime(self.pmf_zb)
+        self.pmf_x = self.pmf_y</pre><p>The parameter, <code>pmf_z</code>, is the unbiased distribution of <code>z</code>. <code>pmf_zb</code> is the biased distribution of gap time, as
+    seen by passengers.</p><p><code>pmf_y</code> is the
+    distribution of wait time. <code>pmf_x</code> is the distribution of elapsed time, which is
+    the same as the distribution of wait time. To see why, remember that for a
+    particular value of <code>zp</code>, the
+    distribution of <code>y</code> is uniform from 0 to
+    <code>zp</code>. Also</p><pre data-type="programlisting">x = zp - y</pre><p>So the distribution of <code>x</code> is also
+    uniform from 0 to <code>zp</code>.</p><p><a data-type="xref" href="#fig.redline2">Figure 8-2</a> shows the distribution of <code>z</code>, <code>zb</code>, and
+    <code>y</code> based on the data I collected from
+    the Red Line website.</p><figure id="fig.redline2" style="float: none"><img src="images/thba_0802.png"/><figcaption>CDF of z, zb, and the wait time seen by passengers, y.</figcaption></figure><p>To present these distributions, I am switching from Pmfs to Cdfs.
+    Most people are more familiar with Pmfs, but I think Cdfs are easier to
+    interpret, once you get used to them. And if you want to plot several
+    distributions on the same axes, Cdfs are the way to go.<a data-type="indexterm" data-primary="Cdf" id="idp2084976"/><a data-type="indexterm" data-primary="cumulative distribution function" id="idp2088496"/></p><p>The mean of <code>z</code> is 7.8 minutes. The
+    mean of <code>zb</code> is 8.8 minutes, about 13%
+    higher. The mean of <code>y</code> is 4.4, half the
+    mean of <code>zb</code>.</p><p>As an aside, the Red Line schedule reports that trains run every 9
+    minutes during peak times. This is close to the average of <code>zb</code>, but higher than the average of <code>z</code>. I exchanged email with a representative of
+    the MBTA, who confirmed that the reported time between trains is
+    deliberately conservative in order to account for variability.</p></section><section data-type="sect1" id="elapsed" data-pdf-bookmark="Predicting wait times"><h1>Predicting wait times</h1><p>Let’s get back to the motivating question: suppose that when I
+    arrive at the platform I see 10 people waiting. How long should I expect
+    to wait until the next train arrives?</p><p>As always, let’s start with the easiest version of the problem and
+    work our way up. Suppose we are given the actual distribution of <code>z</code>, and we know that the passenger arrival rate,
+    <em>λ</em>, is 2 passengers per minute.</p><p>In that case we can:</p><ol><li><p>Use the distribution of <code>z</code> to
+        compute the prior distribution of <code>zp</code>, the time between trains as seen by a
+        passenger.</p></li><li><p>Then we can use the number of passengers to estimate the
+        distribution of <code>x</code>, the elapsed time
+        since the last train.</p></li><li><p>Finally, we use the relation <code>y = zp -
+        x</code> to get the distribution of <code>y</code>.</p></li></ol><p>The first step is to create a <code>WaitTimeCalculator</code> that encapsulates the
+    distributions of <code>zp</code>, <code>x</code>, and <code>y</code>,
+    prior to taking into account the number of passengers.</p><pre data-type="programlisting">    wtc = WaitTimeCalculator(pmf_z)</pre><p><code>pmf_z</code> is the given
+    distribution of gap times.</p><p>The next step is to make an <code>ElapsedTimeEstimator</code> (defined below), which
+    encapsulates the posterior distribution of <code>x</code> and the predictive distribution of <code>y</code>.<a data-type="indexterm" data-primary="predictive distribution" id="idp2102976"/></p><pre data-type="programlisting">    ete = ElapsedTimeEstimator(wtc,
+                               lam=2.0/60,
+                               num_passengers=15)</pre><p>The parameters are the <code>WaitTimeCalculator</code>, the passenger arrival rate,
+    <code>lam</code> (expressed in passengers per
+    second), and the observed number of passengers, let’s say 15.</p><p>Here is the definition of <code>ElapsedTimeEstimator</code>:</p><pre data-type="programlisting">class ElapsedTimeEstimator(object):
+
+    def __init__(self, wtc, lam, num_passengers):
+        self.prior_x = Elapsed(wtc.pmf_x)
+
+        self.post_x = self.prior_x.Copy()
+        self.post_x.Update((lam, num_passengers))
+
+        self.pmf_y = PredictWaitTime(wtc.pmf_zb, self.post_x)</pre><p><code>prior_x</code> and <code>posterior_x</code> are the prior and
+    posterior distributions of elapsed time. <code>pmf_y</code> is the predictive distribution of wait
+    time.</p><p><code>ElapsedTimeEstimator</code> uses
+    <code>Elapsed</code> and <code>PredictWaitTime</code>, defined below.</p><p><code>Elapsed</code> is a Suite that
+    represents the hypothetical distribution of <code>x</code>. The prior distribution of <code>x</code> comes straight from the <code>WaitTimeCalculator</code>. Then we use the data, which
+    consists of the arrival rate, <code>lam</code>, and
+    the number of passengers on the platform, to compute the posterior
+    distribution.</p><p>Here’s the definition of <code>Elapsed</code>:</p><pre data-type="programlisting">class Elapsed(thinkbayes.Suite):
+
+    def Likelihood(self, data, hypo):
+        x = hypo
+        lam, k = data
+        like = thinkbayes.EvalPoissonPmf(lam * x, k)
+        return like</pre><p>As always, <code>Likelihood</code> takes a
+    hypothesis and data, and computes the likelihood of the data under the
+    hypothesis. In this case <code>hypo</code> is the
+    elapsed time since the last train and <code>data</code> is a tuple of <code>lam</code> and the number of passengers.<a data-type="indexterm" data-primary="likelihood" id="idp2115968"/></p><p>The likelihood of the data is the probability of getting <code>k</code> arrivals in <code>x</code> time, given arrival rate <code>lam</code>. We compute that using the PMF of the
+    Poisson distribution.<a data-type="indexterm" data-primary="Poisson distribution" id="idp2120512"/></p><p>Finally, here’s the definition of <code>PredictWaitTime</code>:</p><pre data-type="programlisting">def PredictWaitTime(pmf_zb, pmf_x):
+    pmf_y = pmf_zb - pmf_x
+    RemoveNegatives(pmf_y)
+    return pmf_y</pre><p><code>pmf_zb</code> is the
+    distribution of gaps between trains; <code>pmf_x</code> is the distribution of elapsed time, based on
+    the observed number of passengers. Since <code>y = zb -
+    x</code>, we can compute</p><pre data-type="programlisting">    pmf_y = pmf_zb - pmf_x</pre><p>The subtraction operator invokes <code>Pmf.__sub__</code>, which enumerates all pairs of <code>zb</code> and <code>x</code>,
+    computes the differences, and adds the results to <code>pmf_y</code>.</p><p>The resulting Pmf includes some negative values, which we know are
+    impossible. For example, if you arrive during a gap of 5 minutes, you
+    can’t wait more than 5 minutes. <code>RemoveNegatives</code> removes the impossible values
+    from the distribution and renormalizes.</p><pre data-type="programlisting">def RemoveNegatives(pmf):
+    for val in pmf.Values():
+        if val &lt; 0:
+            pmf.Remove(val)
+    pmf.Normalize()</pre><p><a data-type="xref" href="#fig.redline3">Figure 8-3</a> shows the results. The prior
+    distribution of <code>x</code> is the same as the
+    distribution of <code>y</code> in <a data-type="xref" href="#fig.redline2">Figure 8-2</a>. The posterior distribution of <code>x</code> shows that, after seeing 15 passengers on the
+    platform, we believe that the time since the last train is probably 5-10
+    minutes. The predictive distribution of <code>y</code> indicates that we expect the next train in
+    less than 5 minutes, with about 80% confidence.<a data-type="indexterm" data-primary="predictive distribution" id="idp2133088"/></p><figure id="fig.redline3" style="float: none"><img src="images/thba_0803.png"/><figcaption>Prior and posterior of x and predicted y.</figcaption></figure></section><section data-type="sect1" id="a0000003495" data-pdf-bookmark="Estimating the arrival rate"><h1>Estimating the arrival rate</h1><p>The analysis so far has been based on the assumption that we know
+    (1) the distribution of gaps and (2) the passenger arrival rate. Now we
+    are ready to relax the second assumption.</p><p>Suppose that you just moved to Boston, so you don’t know much about
+    the passenger arrival rate on the Red Line. After a few days of commuting,
+    you could make a guess, at least qualitatively. With a little more effort,
+    you could estimate <em>λ</em>
+    quantitatively.<a data-type="indexterm" data-primary="arrival rate" id="idp2131792"/></p><p>Each day when you arrive at the platform, you should note the time
+    and the number of passengers waiting (if the platform is too big, you
+    could choose a sample area). Then you should record your wait time and the
+    number of new arrivals while you are waiting.</p><p>After five days, you might have data like this:</p><pre data-type="programlisting">k1      y     k2
+--     ---    --
+17     4.6     9
+22     1.0     0
+23     1.4     4
+18     5.4    12
+4      5.8    11</pre><p>where <code>k1</code> is the number of
+    passengers waiting when you arrive, <code>y</code>
+    is your wait time in minutes, and <code>k2</code> is
+    the number of passengers who arrive while you are waiting.</p><p>Over the course of one week, you waited 18 minutes and saw 36
+    passengers arrive, so you would estimate that the arrival rate is 2
+    passengers per minute. For practical purposes that estimate is good
+    enough, but for the sake of completeness I will compute a posterior
+    distribution for <em>λ</em> and show how to use
+    that distribution in the rest of the analysis.</p><p><code>ArrivalRate</code> is a <code>Suite</code> that represents hypotheses about <em>λ</em>. As always, <code>Likelihood</code> takes a hypothesis and data, and
+    computes the likelihood of the data under the hypothesis.</p><p>In this case the hypothesis is a value of <em>λ</em>. The data is a pair, <code>y,
+    k</code>, where <code>y</code> is a wait time and
+    <code>k</code> is the number of passengers that
+    arrived.</p><pre data-type="programlisting">class ArrivalRate(thinkbayes.Suite):
+
+    def Likelihood(self, data, hypo):
+        lam = hypo
+        y, k = data
+        like = thinkbayes.EvalPoissonPmf(lam * y, k)
+        return like</pre><p>This <code>Likelihood</code> might look
+    familiar; it is almost identical to <code>Elapsed.Likelihood</code> in <a data-type="xref" href="#elapsed">“Predicting wait times”</a>. The difference is that in <code>Elapsed.Likelihood</code> the hypothesis is <code>x</code>, the elapsed time; in <code>ArrivalRate.Likelihood</code> the hypothesis is
+    <code>lam</code>, the arrival rate. But in both
+    cases the likelihood is the probability of seeing <code>k</code> arrivals in some period of time, given
+    <code>lam</code>.</p><p><code>ArrivalRateEstimator</code> encapsulates
+    the process of estimating <em>λ</em>. The
+    parameter, <code>passenger_data</code>,
+    is a list of <code>k1, y, k2</code> tuples, as in
+    the table above.<a data-type="indexterm" data-primary="numpy" id="idp2152880"/></p><pre data-type="programlisting">class ArrivalRateEstimator(object):
+
+    def __init__(self, passenger_data):
+        low, high = 0, 5
+        n = 51
+        hypos = numpy.linspace(low, high, n) / 60
+
+        self.prior_lam = ArrivalRate(hypos)
+
+        self.post_lam = self.prior_lam.Copy()
+        for k1, y, k2 in passenger_data:
+            self.post_lam.Update((y, k2))</pre><p><code>__init__</code> builds
+    <code>hypos</code>, which is a sequence of
+    hypothetical values for <code>lam</code>, then
+    builds the prior distribution, <code>prior_lam</code>. The <code>for</code> loop updates the prior with data, yielding
+    the posterior distribution, <code>post_lam</code>.</p><p><a data-type="xref" href="#fig.redline1">Figure 8-4</a> shows the prior and posterior
+    distributions. As expected, the mean and median of the posterior are near
+    the observed rate, 2 passengers per minute. But the spread of the
+    posterior distribution captures our uncertainty about <em>λ</em> based on a small sample.</p><figure id="fig.redline1" style="float: none"><img src="images/thba_0804.png"/><figcaption>Prior and posterior distributions of lam based on five days of
+      passenger <span class="keep-together">data</span>.</figcaption></figure></section><section data-type="sect1" id="a0000003590" data-pdf-bookmark="Incorporating uncertainty"><h1>Incorporating uncertainty</h1><p>Whenever there is uncertainty about one of the inputs to an
+    analysis, we can take it into account by a process like this:<a data-type="indexterm" data-primary="uncertainty" id="idp2160400"/></p><ol><li><p>Implement the analysis based on a deterministic value of the
+        uncertain parameter (in this case <em>λ</em>).</p></li><li><p>Compute the distribution of the uncertain parameter.</p></li><li><p>Run the analysis for each value of the parameter, and generate a
+        set of predictive distributions.<a data-type="indexterm" data-primary="predictive distribution" id="idp2165408"/></p></li><li><p>Compute a mixture of the predictive distributions, using the
+        weights from the distribution of the parameter.</p></li></ol><p>We have already done steps (1) and (2). I wrote a class called
+    <code>WaitMixtureEstimator</code> to handle steps
+    (3) and (4).</p><pre data-type="programlisting">class WaitMixtureEstimator(object):
+
+    def __init__(self, wtc, are, num_passengers=15):
+        self.metapmf = thinkbayes.Pmf()
+
+        for lam, prob in sorted(are.post_lam.Items()):
+            ete = ElapsedTimeEstimator(wtc, lam, num_passengers)
+            self.metapmf.Set(ete.pmf_y, prob)
+
+        self.mixture = thinkbayes.MakeMixture(self.metapmf)</pre><p><code>wtc</code> is the <code>WaitTimeCalculator</code> that contains the
+    distribution of <code>zb</code>. <code>are</code> is the <code>ArrivalTimeEstimator</code> that contains the
+    distribution of <code>lam</code>.</p><p>The first line makes a meta-Pmf that maps from each possible
+    distribution of <code>y</code> to its probability.
+    For each value of <code>lam</code>, we use <code>ElapsedTimeEstimator</code> to compute the
+    corresponding distribution of <code>y</code> and
+    store it in the Meta-Pmf. Then we use <code>MakeMixture</code> to compute the mixture.<a data-type="indexterm" data-primary="MakeMixture" id="idp2173200"/><a data-type="indexterm" data-primary="meta-Pmf" id="idp2172224"/><a data-type="indexterm" data-primary="mixture" id="idp2175104"/></p><p><a data-type="xref" href="#fig.redline4">Figure 8-5</a> shows the results. The shaded lines
+    in the background are the distributions of <code>y</code> for each value of <code>lam</code>, with line thickness that represents
+    likelihood. The dark line is the mixture of these distributions.</p><figure id="fig.redline4" style="float: True"><img src="images/thba_0805.png"/><figcaption>Predictive distributions of y for possible values of lam.</figcaption></figure><p>In this case we could get a very similar result using a single point
+    estimate of <code>lam</code>. So it was not
+    necessary, for practical purposes, to include the uncertainty of the
+    estimate.</p><p>In general, it is important to include variability if the system
+    response is non-linear; that is, if small changes in the input can cause
+    big changes in the output. In this case, posterior variability in <code>lam</code> is small and the system response is
+    approximately linear for small perturbations.<a data-type="indexterm" data-primary="non-linear" id="idp2182272"/></p></section><section data-type="sect1" id="a0000003664" data-pdf-bookmark="Decision analysis"><h1>Decision analysis</h1><p>At this point we can use the number of passengers on the platform to
+    predict the distribution of wait times. Now let’s get to the second part
+    of the question: when should I stop waiting for the train and go catch a
+    taxi?<a data-type="indexterm" data-primary="decision analysis" id="idp2187504"/></p><p>Remember that in the original scenario, I am trying to get to South
+    Station to catch the commuter rail. Suppose I leave the office with enough
+    time that I can wait 15 minutes and still make my connection at South
+    Station.</p><p>In that case I would like to know the probability that <code>y</code> exceeds 15 minutes as a function of <code>num_passengers</code>. It is easy enough
+    to use the analysis from <a data-type="xref" href="#elapsed">“Predicting wait times”</a> and run it for a range
+    of <code>num_passengers</code>.</p><p>But there’s a problem. The analysis is sensitive to the frequency of
+    long delays, and because long delays are rare, it is hard estimate their
+    frequency.</p><p>I only have data from one week, and the longest delay I observed was
+    15 minutes. So I can’t estimate the frequency of longer delays
+    accurately.</p><p>However, I can use previous observations to make at least a coarse
+    estimate. When I commuted by Red Line for a year, I saw three long delays
+    caused by a signaling problem, a power outage, and “police activity” at
+    another stop. So I estimate that there are about 3 major delays per
+    year.</p><p>But remember that my observations are biased. I am more likely to
+    observe long delays because they affect a large number of passengers. So
+    we should treat my observations as a sample of <code>zb</code> rather than <code>z</code>. Here’s how we can do that.<a data-type="indexterm" data-primary="observer bias" id="idp2193904"/></p><p>During my year of commuting, I took the Red Line home about 220
+    times. So I take the observed gap times, <code>gap_times</code>, generate a sample of 220 gaps, and
+    compute their Pmf:</p><pre data-type="programlisting">    n = 220
+    cdf_z = thinkbayes.MakeCdfFromList(gap_times)
+    sample_z = cdf_z.Sample(n)
+    pmf_z = thinkbayes.MakePmfFromList(sample_z)</pre><p>Next I bias <code>pmf_z</code> to
+    get the distribution of <code>zb</code>, draw a
+    sample, and then add in delays of 30, 40, and 50 minutes (expressed in
+    seconds):</p><pre data-type="programlisting">    cdf_zp = BiasPmf(pmf_z).MakeCdf()
+    sample_zb = cdf_zp.Sample(n) + [1800, 2400, 3000]</pre><p><code>Cdf.Sample</code> is more efficient than
+    <code>Pmf.Sample</code>, so it is usually faster to
+    convert a Pmf to a Cdf before sampling.</p><p>Next I use the sample of <code>zb</code> to
+    estimate a Pdf using KDE, and then convert the Pdf to a Pmf:</p><pre data-type="programlisting">    pdf_zb = thinkbayes.EstimatedPdf(sample_zb)
+    xs = MakeRange(low=60)
+    pmf_zb = pdf_zb.MakePmf(xs)</pre><p>Finally I unbias the distribution of <code>zb</code> to get the distribution of <code>z</code>, which I use to create the <code>WaitTimeCalculator</code>:</p><pre data-type="programlisting">    pmf_z = UnbiasPmf(pmf_zb)
+    wtc = WaitTimeCalculator(pmf_z)</pre><p>This process is complicated, but all of the steps are operations we
+    have seen before. Now we are ready to compute the probability of a long
+    wait.</p><pre data-type="programlisting">def ProbLongWait(num_passengers, minutes):
+    ete = ElapsedTimeEstimator(wtc, lam, num_passengers)
+    cdf_y = ete.pmf_y.MakeCdf()
+    prob = 1 - cdf_y.Prob(minutes * 60)</pre><p>Given the number of passengers on the platform, <code>ProbLongWait</code> makes an <code>ElapsedTimeEstimator</code>, extracts the distribution
+    of wait time, and computes the probability that wait time exceeds <code>minutes</code>.</p><p><a data-type="xref" href="#fig.redline5">Figure 8-6</a> shows the result. When the number of
+    passengers is less than 20, we infer that the system is operating
+    normally, so the probability of a long delay is small. If there are 30
+    passengers, we estimate that it has been 15 minutes since the last train;
+    that’s longer than a normal delay, so we infer that something is wrong and
+    expect longer delays.</p><figure id="fig.redline5" style="float: none"><img src="images/thba_0806.png"/><figcaption>Probability that wait time exceeds 15 minutes as a function of
+      the number of passengers on the platform.</figcaption></figure><p>If we are willing to accept a 10% chance of missing the connection
+    at South Station, we should stay and wait as long as there are fewer than
+    30 passengers, and take a taxi if there are more.</p><p>Or, to take this analysis one step further, we could quantify the
+    cost of missing the connection and the cost of taking a taxi, then choose
+    the threshold that minimizes expected cost.</p></section><section data-type="sect1" id="a0000003737" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>The analysis so far has been based on the assumption that the
+    arrival rate of passengers is the same every day. For a commuter train
+    during rush hour, that might not be a bad assumption, but there are some
+    obvious exceptions. For example, if there is a special event nearby, a
+    large number of people might arrive at the same time. In that case, the
+    estimate of <code>lam</code> would be too low, so
+    the estimates of <code>x</code> and <code>y</code> would be too high.</p><p>If special events are as common as major delays, it would be
+    important to include them in the model. We could do that by extending the
+    distribution of <code>lam</code> to include
+    occasional large values.</p><p>We started with the assumption that we know distribution of <code>z</code>. As an alternative, a passenger could estimate
+    <code>z</code>, but it would not be easy. As a
+    passenger, you only observe only your own wait time, <code>y</code>. Unless you skip the first train and wait for
+    the second, you don’t observe the gap between trains, <code>z</code>.</p><p>However, we could make some inferences about <code>zb</code>. If we note the number of passengers waiting
+    when we arrive, we can estimate the elapsed time since the last train,
+    <code>x</code>. Then we observe <code>y</code>. If we add the posterior distribution of
+    <code>x</code> to the observed <code>y</code>, we get a distribution that represents our
+    posterior belief about the observed value of <code>zb</code>.</p><p>We can use this distribution to update our beliefs about the
+    distribution of <code>zb</code>. Finally, we can
+    compute the inverse of <code>BiasPmf</code> to get
+    from the distribution of <code>zb</code> to the
+    distribution of <code>z</code>.</p><p>I leave this analysis as an exercise for the reader. One suggestion:
+    you should read <a data-type="xref" href="ch15.html#species">Chapter 15</a> first. You can find the outline
+    of a solution in <a href="http://thinkbayes.com/redline.py" class="orm:hideurl">http://thinkbayes.com/redline.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000003786" data-pdf-bookmark="Exercises"><h1>Exercises</h1><div id="a0000003789" class="exercise" data-type="example"><h5/><p>This exercise is from MacKay, <em>Information Theory,
+        Inference, and Learning Algorithms</em>:<a data-type="indexterm" data-primary="MacKay, David" id="idp2223232"/></p><blockquote><p>Unstable particles are emitted from a source and decay at a
+          distance <em>x</em>, a real number that has
+          an exponential probability distribution with [parameter] <em>λ</em>. Decay events can only be observed if they
+          occur in a window extending from <math xmlns="http://www.w3.org/1998/Math/MathML">
+                <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+                  <mml:mi>x</mml:mi>
+
+                  <mml:mo>=</mml:mo>
+
+                  <mml:mn>1</mml:mn>
+                </mml:mrow>
+              </math> cm to <math xmlns="http://www.w3.org/1998/Math/MathML">
+                <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+                  <mml:mi>x</mml:mi>
+
+                  <mml:mo>=</mml:mo>
+
+                  <mml:mn>20</mml:mn>
+                </mml:mrow>
+              </math> cm. <em>N</em> decays
+          are observed at locations <math xmlns="http://www.w3.org/1998/Math/MathML">
+                <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+                  <mml:mo>{</mml:mo>
+
+                  <mml:mn>1</mml:mn>
+
+                  <mml:mo>.</mml:mo>
+
+                  <mml:mn>5</mml:mn>
+
+                  <mml:mo>,</mml:mo>
+
+                  <mml:mn>2</mml:mn>
+
+                  <mml:mo>,</mml:mo>
+
+                  <mml:mn>3</mml:mn>
+
+                  <mml:mo>,</mml:mo>
+
+                  <mml:mn>4</mml:mn>
+
+                  <mml:mo>,</mml:mo>
+
+                  <mml:mn>5</mml:mn>
+
+                  <mml:mo>,</mml:mo>
+
+                  <mml:mn>12</mml:mn>
+
+                  <mml:mo>}</mml:mo>
+                </mml:mrow>
+              </math> cm. What is the posterior distribution of
+          <em>λ</em>?</p></blockquote><p>You can download a solution to this exercise from <a href="http://thinkbayes.com/decay.py" class="orm:hideurl">http://thinkbayes.com/decay.py</a>.</p></div></section></section>
+  </body>
+</html>

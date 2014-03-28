@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="prediction" data-pdf-bookmark="Chapter 7. Prediction"><h1>Prediction</h1><section data-type="sect1" id="a0000002846" data-pdf-bookmark="The Boston Bruins problem"><h1>The Boston Bruins problem</h1><p>In the 2010-11 National Hockey League (NHL) Finals, my beloved
+    Boston Bruins played a best-of-seven championship series against the
+    despised Vancouver Canucks. Boston lost the first two games 0-1 and 2-3,
+    then won the next two games 8-1 and 4-0. At this point in the series, what
+    is the probability that Boston will win the next game, and what is their
+    probability of winning the championship?<a data-type="indexterm" data-primary="hockey" id="idp1908736"/><a data-type="indexterm" data-primary="Boston Bruins" id="idp1903232"/><a data-type="indexterm" data-primary="Vancouver Canucks" id="idp1908160"/></p><p>As always, to answer a question like this, we need to make some
+    assumptions. First, it is reasonable to believe that goal scoring in
+    hockey is at least approximately a Poisson process, which means that it is
+    equally likely for a goal to be scored at any time during a game. Second,
+    we can assume that against a particular opponent, each team has some
+    long-term average goals per game, denoted <em>λ</em>.<a data-type="indexterm" data-primary="Poisson process" id="idp1903616"/></p><p>Given these assumptions, my strategy for answering this question
+    is</p><ol><li><p>Use statistics from previous games to choose a prior
+        distribution for <em>λ</em>.</p></li><li><p>Use the score from the first four games to estimate <em>λ</em> for each team.</p></li><li><p>Use the posterior distributions of <em>λ</em> to compute distribution of goals for each
+        team, the distribution of the goal differential, and the probability
+        that each team wins the next game.</p></li><li><p>Compute the probability that each team wins the series.</p></li></ol><p>To choose a prior distribution, I got some statistics from <a href="http://www.nhl.com" class="orm:hideurl">http://www.nhl.com</a>,
+    specifically the average goals per game for each team in the 2010-11
+    season. The distribution is roughly Gaussian with mean 2.8 and standard
+    deviation 0.3.<a data-type="indexterm" data-primary="National Hockey League" id="idp1911280"/><a data-type="indexterm" data-primary="NHL" id="idp1915872"/></p><p>The Gaussian distribution is continuous, but we’ll approximate it
+    with a discrete Pmf. <code>thinkbayes</code> provides <code>MakeGaussianPmf</code> to do exactly that:<a data-type="indexterm" data-primary="numpy" id="idp1917856"/><a data-type="indexterm" data-primary="Gaussian distribution" id="idp1918352"/></p><pre data-type="programlisting">def MakeGaussianPmf(mu, sigma, num_sigmas, n=101):
+    pmf = Pmf()
+    low = mu - num_sigmas*sigma
+    high = mu + num_sigmas*sigma
+
+    for x in numpy.linspace(low, high, n):
+        p = scipy.stats.norm.pdf(mu, sigma, x)
+        pmf.Set(x, p)
+    pmf.Normalize()
+    return pmf</pre><p><code>mu</code> and <code>sigma</code> are the mean and standard deviation of the
+    Gaussian distribution. <code>num_sigmas</code> is the number of standard deviations
+    above and below the mean that the Pmf will span, and <code>n</code> is the number of values in the Pmf.</p><p>Again we use <code>numpy.linspace</code> to
+    make an array of <code>n</code> equally spaced
+    values between <code>low</code> and <code>high</code>, including both.</p><p><code>norm.pdf</code> evaluates
+    the Gaussian probability density function (PDF).<a data-type="indexterm" data-primary="PDF" id="idp1926096"/><a data-type="indexterm" data-primary="probability density function" id="idp1926704"/></p><p>Getting back to the hockey problem, here’s the definition for a
+    suite of hypotheses about the value of <em>λ</em>.</p><pre data-type="programlisting">class Hockey(thinkbayes.Suite):
+
+    def __init__(self):
+        pmf = thinkbayes.MakeGaussianPmf(2.7, 0.3, 4)
+        thinkbayes.Suite.__init__(self, pmf)</pre><p>So the prior distribution is Gaussian with mean 2.7, standard
+    deviation 0.3, and it spans 4 sigmas above and below the mean.</p><p>As always, we have to decide how to represent each hypothesis; in
+    this case I represent the hypothesis that <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>λ</mml:mi>
+
+            <mml:mo>=</mml:mo>
+
+            <mml:mi>x</mml:mi>
+          </mml:mrow>
+        </math> with the floating-point value <code>x</code>.</p></section><section data-type="sect1" id="a0000002910" data-pdf-bookmark="Poisson processes"><h1>Poisson processes</h1><p>In mathematical statistics, a <strong>process</strong> is a stochastic model of a physical system
+    (“stochastic” means that the model has some kind of randomness in it). For
+    example, a Bernoulli process is a model of a sequence of events, called
+    trials, in which each trial has two possible outcomes, like success and
+    failure. So a Bernoulli process is a natural model for a series of coin
+    flips, or a series of shots on goal.<a data-type="indexterm" data-primary="process" id="idp1933136"/><a data-type="indexterm" data-primary="Poisson process" id="idp1940320"/></p><p>A Poisson process is the continuous version of a Bernoulli process,
+    where an event can occur at any point in time with equal probability.
+    Poisson processes can be used to model customers arriving in a store,
+    buses arriving at a bus stop, or goals scored in a hockey game.<a data-type="indexterm" data-primary="Bernoulli process" id="idp1935184"/></p><p>In many real systems the probability of an event changes over time.
+    Customers are more likely to go to a store at certain times of day, buses
+    are supposed to arrive at fixed intervals, and goals are more or less
+    likely at different times during a game.</p><p>But all models are based on simplifications, and in this case
+    modeling a hockey game with a Poisson process is a reasonable choice.
+    Heuer, Müller and Rubner (2010) analyze scoring in a German soccer league
+    and come to the same conclusion; see <a href="http://www.cimat.mx/Eventos/vpec10/img/poisson.pdf" class="orm:hideurl">http://www.cimat.mx/Eventos/vpec10/img/poisson.pdf</a>.<a data-type="indexterm" data-primary="Heuer, Andreas" id="idp1935696"/></p><p>The benefit of using this model is that we can compute the
+    distribution of goals per game efficiently, as well as the distribution of
+    time between goals. Specifically, if the average number of goals in a game
+    is <code>lam</code>, the distribution of goals per
+    game is given by the Poisson PMF:<a data-type="indexterm" data-primary="Poisson distribution" id="idp1937856"/></p><pre data-type="programlisting">def EvalPoissonPmf(lam, k):
+    return (lam)**k * math.exp(-lam) / math.factorial(k)</pre><p>And the distribution of time between goals is given by the
+    exponential PDF:<a data-type="indexterm" data-primary="exponential distribution" id="idp1943184"/></p><pre data-type="programlisting">def EvalExponentialPdf(lam, x):
+    return lam * math.exp(-lam * x)</pre><p>I use the variable <code>lam</code> because
+    <code>lambda</code> is a reserved keyword in Python.
+    Both of these functions are in <code>thinkbayes.py</code>.</p></section><section data-type="sect1" id="a0000002934" data-pdf-bookmark="The posteriors"><h1>The posteriors</h1><figure id="fig.hockey1" style="float: True"><img src="images/thba_0701.png"/><figcaption>Posterior distribution of the number of goals per game.</figcaption></figure><p>Now we can compute the likelihood that a team with a hypothetical
+    value of <code>lam</code> scores <code>k</code> goals in a game:</p><pre data-type="programlisting"># class Hockey
+
+    def Likelihood(self, data, hypo):
+        lam = hypo
+        k = data
+        like = thinkbayes.EvalPoissonPmf(lam, k)
+        return like</pre><p>Each hypothesis is a possible value of <em>λ</em>; <code>data</code> is the
+    observed number of goals, <code>k</code>.</p><p>With the likelihood function in place, we can make a suite for each
+    team and update them with the scores from the first four games.</p><pre data-type="programlisting">    suite1 = Hockey('bruins')
+    suite1.UpdateSet([0, 2, 8, 4])
+     
+    suite2 = Hockey('canucks')
+    suite2.UpdateSet([1, 3, 1, 0])</pre><p><a data-type="xref" href="#fig.hockey1">Figure 7-1</a> shows the resulting posterior
+    distributions for <code>lam</code>. Based on the
+    first four games, the most likely values for <code>lam</code> are 2.6 for the Canucks and 2.9 for the
+    Bruins.</p></section><section data-type="sect1" id="a0000002969" data-pdf-bookmark="The distribution of goals"><h1>The distribution of goals</h1><p>To compute the probability that each team wins the next game, we
+    need to compute the distribution of goals for each team.</p><p>If we knew the value of <code>lam</code>
+    exactly, we could use the Poisson distribution again. <code>thinkbayes</code> provides a method that
+    computes a truncated approximation of a Poisson distribution:<a data-type="indexterm" data-primary="Poisson distribution" id="idp1958864"/></p><pre data-type="programlisting">def MakePoissonPmf(lam, high):
+    pmf = Pmf()
+    for k in xrange(0, high+1):
+        p = EvalPoissonPmf(lam, k)
+        pmf.Set(k, p)
+    pmf.Normalize()
+    return pmf</pre><p><div class="hard-pagebreak"/>The range of values in the computed Pmf is from 0
+    to <code>high</code>. So if the value of <code>lam</code> were exactly 3.4, we would compute:</p><pre data-type="programlisting">lam = 3.4
+goal_dist = thinkbayes.MakePoissonPmf(lam, 10)</pre><p>I chose the upper bound, 10, because the probability of scoring more
+    than 10 goals in a game is quite low.</p><p>That’s simple enough so far; the problem is that we don’t know the
+    value of <code>lam</code> exactly. Instead, we have
+    a distribution of possible values for <code>lam</code>.</p><p>For each value of <code>lam</code>, the
+    distribution of goals is Poisson. So the overall distribution of goals is
+    a mixture of these Poisson distributions, weighted according to the
+    probabilities in the distribution of <code>lam</code>.<a data-type="indexterm" data-primary="Poisson distribution" id="idp1963248"/></p><p>Given the posterior distribution of <code>lam</code>, here’s the code that makes the distribution
+    of goals:</p><pre data-type="programlisting">def MakeGoalPmf(suite):
+    metapmf = thinkbayes.Pmf()
+
+    for lam, prob in suite.Items():
+        pmf = thinkbayes.MakePoissonPmf(lam, 10)
+        metapmf.Set(pmf, prob)
+
+    mix = thinkbayes.MakeMixture(metapmf)
+    return mix</pre><p>For each value of <code>lam</code> we make a
+    Poisson Pmf and add it to the meta-Pmf. I call it a meta-Pmf because it is
+    a Pmf that contains Pmfs as its values.<a data-type="indexterm" data-primary="meta-Pmf" id="idp1964736"/></p><p>Then we use <code>MakeMixture</code> to compute the mixture (we saw <code>MakeMixture</code> in <a data-type="xref" href="ch05.html#mixture">“Mixtures”</a>).<a data-type="indexterm" data-primary="mixture" id="idp1969056"/><a data-type="indexterm" data-primary="MakeMixture" id="idp1969664"/></p><p><a data-type="xref" href="#fig.hockey2">Figure 7-2</a> shows the resulting distribution of
+    goals for the Bruins and Canucks. The Bruins are less likely to score 3
+    goals or fewer in the next game, and more likely to score 4 or
+    more.</p><figure id="fig.hockey2" style="float: none"><img src="images/thba_0702.png"/><figcaption>Distribution of goals in a single game.</figcaption></figure></section><section data-type="sect1" id="a0000003022" data-pdf-bookmark="The probability of winning"><h1>The probability of winning</h1><p>To get the probability of winning, first we compute the distribution
+    of the goal <span class="keep-together">differential</span>:</p><pre data-type="programlisting">    goal_dist1 = MakeGoalPmf(suite1)
+    goal_dist2 = MakeGoalPmf(suite2)
+    diff = goal_dist1 - goal_dist2</pre><p>The subtraction operator invokes <code>Pmf.__sub__</code>, which enumerates pairs of values and
+    computes the difference. Subtracting two distributions is almost the same
+    as adding, which we saw in <a data-type="xref" href="ch05.html#addends">“Addends”</a>.</p><p>If the goal differential is positive, the Bruins win; if negative,
+    the Canucks win; if 0, it’s a tie:</p><pre data-type="programlisting">    p_win = diff.ProbGreater(0)
+    p_loss = diff.ProbLess(0)
+    p_tie = diff.Prob(0)</pre><p>With the distributions from the previous section, <code>p_win</code> is 46%, <code>p_loss</code> is 37%, and <code>p_tie</code> is 17%.</p><p>In the event of a tie at the end of “regulation play,” the teams
+    play overtime periods until one team scores. Since the game ends
+    immediately when the first goal is scored, this overtime format is known
+    as “sudden death.”<a data-type="indexterm" data-primary="overtime" id="idp1980224"/><a data-type="indexterm" data-primary="sudden death" id="idp1980928"/></p></section><section data-type="sect1" id="a0000003051" data-pdf-bookmark="Sudden death"><h1>Sudden death</h1><p>To compute the probability of winning in a sudden death overtime,
+    the important statistic is not goals per game, but time until the first
+    goal. The assumption that goal-scoring is a Poisson process implies that
+    the time between goals is exponentially distributed.<a data-type="indexterm" data-primary="Poisson process" id="idp1983024"/><a data-type="indexterm" data-primary="exponential distribution" id="idp1983696"/></p><p>Given <code>lam</code>, we can compute the
+    time between goals like this:</p><pre data-type="programlisting">lam = 3.4
+time_dist = thinkbayes.MakeExponentialPmf(lam, high=2, n=101)</pre><p><code>high</code> is the upper bound of the
+    distribution. In this case I chose 2, because the probability of going
+    more than two games without scoring is small. <code>n</code> is the number of values in the Pmf.</p><p>If we know <code>lam</code> exactly, that’s
+    all there is to it. But we don’t; instead we have a posterior distribution
+    of possible values. So as we did with the distribution of goals, we make a
+    meta-Pmf and compute a mixture of Pmfs.<a data-type="indexterm" data-primary="MakeMixture" id="idp1989904"/><a data-type="indexterm" data-primary="meta-Pmf" id="idp1989328"/><a data-type="indexterm" data-primary="mixture" id="idp1987440"/></p><pre data-type="programlisting">def MakeGoalTimePmf(suite):
+    metapmf = thinkbayes.Pmf()
+
+    for lam, prob in suite.Items():
+        pmf = thinkbayes.MakeExponentialPmf(lam, high=2, n=2001)
+        metapmf.Set(pmf, prob)
+
+    mix = thinkbayes.MakeMixture(metapmf)
+    return mix</pre><p><a data-type="xref" href="#fig.hockey3">Figure 7-3</a> shows the resulting distributions.
+    For time values less than one period (one third of a game), the Bruins are
+    more likely to score. The time until the Canucks score is more likely to
+    be longer.</p><figure id="fig.hockey3" style="float: True"><img src="images/thba_0703.png"/><figcaption>Distribution of time between goals.</figcaption></figure><p>I set the number of values, <code>n</code>,
+    fairly high in order to minimize the number of ties, since it is not
+    possible for both teams to score simultaneously.</p><p>Now we compute the probability that the Bruins score first:</p><pre data-type="programlisting">    time_dist1 = MakeGoalTimePmf(suite1)
+    time_dist2 = MakeGoalTimePmf(suite2)
+    p_overtime = thinkbayes.PmfProbLess(time_dist1, time_dist2)</pre><p>For the Bruins, the probability of winning in overtime is
+    52%.</p><p>Finally, the total probability of winning is the chance of winning
+    at the end of regulation play plus the probability of winning in
+    overtime.</p><pre data-type="programlisting">    p_tie = diff.Prob(0)
+    p_overtime = thinkbayes.PmfProbLess(time_dist1, time_dist2)
+
+    p_win = diff.ProbGreater(0) + p_tie * p_overtime</pre><p>For the Bruins, the overall chance of winning the next game is
+    55%.</p><p>To win the series, the Bruins can either win the next two games or
+    split the next two and win the third. Again, we can compute the total
+    probability:</p><pre data-type="programlisting">    # win the next two
+    p_series = p_win**2
+
+    # split the next two, win the third
+    p_series += 2 * p_win * (1-p_win) * p_win</pre><p>The chance that the Bruins will win the series is 57%. And in 2011,
+    they did.</p></section><section data-type="sect1" id="a0000003090" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>As always, the analysis in this chapter is based on modeling
+    decisions, and modeling is almost always an iterative process. In general,
+    you want to start with something simple that yields an approximate answer,
+    identify likely sources of error, and look for opportunities for
+    improvement.<a data-type="indexterm" data-primary="modeling" id="idp1999232"/><a data-type="indexterm" data-primary="iterative modeling" id="idp1999904"/></p><p>In this example, I would consider these options:</p><ul><li><p>I chose a prior based on the average goals per game for each
+        team. But this statistic is averaged across all opponents. Against a
+        particular opponent, we might expect more variability. For example, if
+        the team with the best offense plays the team with the worst defense,
+        the expected goals per game might be several standard deviations above
+        the mean.</p></li><li><p>For data I used only the first four games of the championship
+        series. If the same teams played each other during the regular season,
+        I could use the results from those games as well. One complication is
+        that the composition of teams changes during the season due to trades
+        and injuries. So it might be best to give more weight to recent
+        games.</p></li><li><p>To take advantage of all available information, we could use
+        results from all regular season games to estimate each team’s goal
+        scoring rate, possibly adjusted by estimating an additional factor for
+        each pairwise match-up. This approach would be more complicated, but
+        it is still feasible.</p></li></ul><p>For the first option, we could use the results from the regular
+    season to estimate the variability across all pairwise match-ups. Thanks
+    to Dirk Hoag at <a href="http://forechecker.blogspot.com/" class="orm:hideurl">http://forechecker.blogspot.com/</a>,
+    I was able to get the number of goals scored during regulation play (not
+    overtime) for each game in the regular season.<a data-type="indexterm" data-primary="Hoag, Dirk" id="idp2007280"/></p><p>Teams in different conferences only play each other one or two times
+    in the regular season, so I focused on pairs that played each other 4–6
+    times. For each pair, I computed the average goals per game, which is an
+    estimate of <em>λ</em>, then plotted the
+    distribution of these estimates.</p><p>The mean of these estimates is 2.8, again, but the standard
+    deviation is 0.85, substantially higher than what we got computing one
+    estimate for each team.</p><p>If we run the analysis again with the higher-variance prior, the
+    probability that the Bruins win the series is 80%, substantially higher
+    than the result with the low-variance prior, 57%.</p><p>So it turns out that the results are sensitive to the prior, which
+    makes sense considering how little data we have to work with. Based on the
+    difference between the low-variance model and the high-variable model, it
+    seems worthwhile to put some effort into getting the prior right.</p><p>The code and data for this chapter are available from <a href="http://thinkbayes.com/hockey.py" class="orm:hideurl">http://thinkbayes.com/hockey.py</a>
+    and <a href="http://thinkbayes.com/hockey_data.csv" class="orm:hideurl">http://thinkbayes.com/hockey_data.csv</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000003120" data-pdf-bookmark="Exercises"><h1>Exercises</h1><div id="a0000003123" class="exercise" data-type="example"><h5/><p>If buses arrive at a bus stop every 20 minutes, and you arrive
+        at the bus stop at a random time, your wait time until the bus arrives
+        is uniformly distributed from 0 to 20 minutes.<a data-type="indexterm" data-primary="bus stop problem" id="idp2014688"/></p><p>But in reality, there is variability in the time between buses.
+        Suppose you are waiting for a bus, and you know the historical
+        distribution of time between buses. Compute your distribution of wait
+        times.</p><p>Hint: Suppose that the time between buses is either 5 or 10
+        minutes with equal probability. What is the probability that you
+        arrive during one of the 10 minute intervals?</p><p>I solve a version of this problem in the next chapter.</p></div><div id="a0000003130" class="exercise" data-type="example"><h5/><p>Suppose that passengers arriving at the bus stop are
+        well-modeled by a Poisson process with parameter <em>λ</em>. If you arrive at the stop and find 3 people
+        waiting, what is your posterior distribution for the time since the
+        last bus arrived.<a data-type="indexterm" data-primary="Poisson process" id="idp2016144"/></p><p>I solve a version of this problem in the next chapter.</p></div><div id="a0000003137" class="exercise" data-type="example"><h5/><p>Suppose that you are an ecologist sampling the insect population
+        in a new environment. You deploy 100 traps in a test area and come
+        back the next day to check on them. You find that 37 traps have been
+        triggered, trapping an insect inside. Once a trap triggers, it cannot
+        trap another insect until it has been reset.<a data-type="indexterm" data-primary="insect sampling problem" id="idp2018144"/></p><p>If you reset the traps and come back in two days, how many traps
+        do you expect to find triggered? Compute a posterior predictive
+        distribution for the number of traps.<a data-type="indexterm" data-primary="predictive distribution" id="idp2024720"/></p></div><div id="a0000003142" class="exercise" data-type="example"><h5/><p>Suppose you are the manager of an apartment building with 100
+        light bulbs in common areas. It is your responsibility to replace
+        light bulbs when they break.<a data-type="indexterm" data-primary="light bulb problem" id="idp2022736"/></p><p>On January 1, all 100 bulbs are working. When you inspect them
+        on February 1, you find 3 light bulbs out. If you come back on April
+        1, how many light bulbs do you expect to find broken?</p><p>In the previous exercise, you could reasonably assume that an
+        event is equally likely at any time. For light bulbs, the likelihood
+        of failure depends on the age of the bulb. Specifically, old bulbs
+        have an increasing failure rate due to evaporation of the
+        filament.</p><p>This problem is more open-ended than some; you will have to make
+        modeling decisions. You might want to read about the Weibull
+        distribution (<a href="http://en.wikipedia.org/wiki/Weibull_distribution" class="orm:hideurl">http://en.wikipedia.org/wiki/Weibull_distribution</a>).
+        Or you might want to look around for information about light bulb
+        survival curves.<a data-type="indexterm" data-primary="Weibull distribution" id="idp2030064"/></p></div></section></section>
+  </body>
+</html>

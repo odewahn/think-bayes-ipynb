@@ -1,0 +1,566 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="a0000005625" data-pdf-bookmark="Chapter 13. Simulation"><h1>Simulation</h1><p>In this chapter I describe my solution to a problem posed by a patient
+  with a kidney tumor. I think the problem is important and relevant to
+  patients with these tumors and doctors treating them.</p><p>And I think the solution is interesting because, although it is a
+  Bayesian approach to the problem, the use of Bayes’s theorem is implicit. I
+  present the solution and my code; at the end of the chapter I will explain
+  the Bayesian part.</p><p>If you want more technical detail than I present here, you can read my
+  paper on this work at <a href="http://arxiv.org/abs/1203.6890" class="orm:hideurl">http://arxiv.org/abs/1203.6890</a>.</p><section data-type="sect1" id="a0000005631" data-pdf-bookmark="The Kidney Tumor problem"><h1>The Kidney Tumor problem</h1><p><a data-type="indexterm" data-primary="Kidney tumor problem" id="idp2953984"/><a data-type="indexterm" data-primary="Reddit" id="idp2957472"/>I am a frequent reader and occasional contributor to the
+    online statistics forum at <a href="http://reddit.com/r/statistics" class="orm:hideurl">http://reddit.com/r/statistics</a>.
+    In November 2011, I read the following message:</p><blockquote><p>“I have Stage IV Kidney Cancer and am trying to determine if the
+      cancer formed before I retired from the military. ... Given the dates of
+      retirement and detection is it possible to determine when there was a
+      50/50 chance that I developed the disease? Is it possible to determine
+      the probability on the retirement date? My tumor was 15.5 cm x 15 cm at
+      detection. Grade II.”</p></blockquote><p>I contacted the author of the message and got more information; I
+    learned that veterans get different benefits if it is “more likely than
+    not” that a tumor formed while they were in military service (among other
+    considerations).</p><p>Because renal tumors grow slowly, and often do not cause symptoms,
+    they are sometimes left untreated. As a result, doctors can observe the
+    rate of growth for untreated tumors by comparing scans from the same
+    patient at different times. Several papers have reported these growth
+    rates.</p><p>I collected data from a paper by Zhang et al<a data-type="noteref" id="idp2962128-marker" href="ch13.html#idp2962128"><sup>3</sup></a>. I contacted the authors to see if I could get raw data, but
+    they refused on grounds of medical privacy. Nevertheless, I was able to
+    extract the data I needed by printing one of their graphs and measuring it
+    with a ruler.</p><p>They report growth rates in reciprocal doubling time (RDT), which is
+    in units of doublings per year. So a tumor with <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>R</mml:mi>
+
+            <mml:mi>D</mml:mi>
+
+            <mml:mi>T</mml:mi>
+
+            <mml:mo>=</mml:mo>
+
+            <mml:mn>1</mml:mn>
+          </mml:mrow>
+        </math> doubles in volume each year; with <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>R</mml:mi>
+
+            <mml:mi>D</mml:mi>
+
+            <mml:mi>T</mml:mi>
+
+            <mml:mo>=</mml:mo>
+
+            <mml:mn>2</mml:mn>
+          </mml:mrow>
+        </math> it quadruples in the same time, and with
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>R</mml:mi>
+
+            <mml:mi>D</mml:mi>
+
+            <mml:mi>T</mml:mi>
+
+            <mml:mo>=</mml:mo>
+
+            <mml:mo>-</mml:mo>
+
+            <mml:mn>1</mml:mn>
+          </mml:mrow>
+        </math>, it halves. <a data-type="xref" href="#fig.kidney2">Figure 13-1</a> shows the
+    distribution of RDT for 53 patients.<a data-type="indexterm" data-primary="doubling time" id="idp2975424"/></p><figure id="fig.kidney2" style="float: none"><img src="images/thba_1301.png"/><figcaption>CDF of RDT in doublings per year.</figcaption></figure><p>The squares are the data points from the paper; the line is a model
+    I fit to the data. The positive tail fits an exponential distribution
+    well, so I used a mixture of two exponentials.<a data-type="indexterm" data-primary="exponential distribution" id="idp2974368"/><a data-type="indexterm" data-primary="mixture" id="idp2977600"/></p></section><section data-type="sect1" id="a0000005659" data-pdf-bookmark="A simple model"><h1>A simple model</h1><p>It is usually a good idea to start with a simple model before trying
+    something more challenging. Sometimes the simple model is sufficient for
+    the problem at hand, and if not, you can use it to validate the more
+    complex model.<a data-type="indexterm" data-primary="modeling" id="idp2979344"/></p><p>For my simple model, I assume that tumors grow with a constant
+    doubling time, and that they are three-dimensional in the sense that if
+    the maximum linear measurement doubles, the volume is multiplied by
+    eight.</p><p>I learned from my correspondent that the time between his discharge
+    from the military and his diagnosis was 3291 days (about 9 years). So my
+    first calculation was, “If this tumor grew at the median rate, how big
+    would it have been at the date of discharge?”</p><p>The median volume doubling time reported by Zhang et al is 811 days.
+    Assuming 3-dimensional geometry, the doubling time for a linear measure is
+    three times longer.</p><pre data-type="programlisting">    # time between discharge and diagnosis, in days 
+    interval = 3291.0
+
+    # doubling time in linear measure is doubling time in volume * 3
+    dt = 811.0 * 3
+
+    # number of doublings since discharge
+    doublings = interval / dt
+
+    # how big was the tumor at time of discharge (diameter in cm)
+    d1 = 15.5
+    d0 = d1 / 2.0 ** doublings</pre><p>You can download the code in this chapter from <a href="http://thinkbayes.com/kidney.py" class="orm:hideurl">http://thinkbayes.com/kidney.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p><p>The result, <code>d0</code>, is about 6 cm. So
+    if this tumor formed after the date of discharge, it must have grown
+    substantially faster than the median rate. Therefore I concluded that it
+    is “more likely than not” that this tumor formed before the date of
+    discharge.</p><p>In addition, I computed the growth rate that would be implied if
+    this tumor had formed after the date of discharge. If we assume an initial
+    size of 0.1 cm, we can compute the number of doublings to get to a final
+    size of 15.5 cm:</p><pre data-type="programlisting">    # assume an initial linear measure of 0.1 cm
+    d0 = 0.1
+    d1 = 15.5
+
+    # how many doublings would it take to get from d0 to d1
+    doublings = log2(d1 / d0)
+
+    # what linear doubling time does that imply?
+    dt = interval / doublings
+
+    # compute the volumetric doubling time and RDT
+    vdt = dt / 3
+    rdt = 365 / vdt</pre><p><code>dt</code> is linear doubling time, so
+    <code>vdt</code> is volumetric doubling time, and
+    <code>rdt</code> is reciprocal doubling time.</p><p>The number of doublings, in linear measure, is 7.3, which implies an
+    RDT of 2.4. In the data from Zhang et al, only 20% of tumors grew this
+    fast during a period of observation. So again, I concluded that is “more
+    likely than not” that the tumor formed prior to the date of
+    discharge.</p><p>These calculations are sufficient to answer the question as posed,
+    and on behalf of my correspondent, I wrote a letter explaining my
+    conclusions to the Veterans’ Benefit Administration.<a data-type="indexterm" data-primary="Veterans’ Benefit Administration" id="idp2992512"/></p><p>Later I told a friend, who is an oncologist, about my results. He
+    was surprised by the growth rates observed by Zhang et al, and by what
+    they imply about the ages of these tumors. He suggested that the results
+    might be interesting to researchers and doctors.</p><p>But in order to make them useful, I wanted a more general model of
+    the relationship between age and size.</p></section><section data-type="sect1" id="a0000005689" data-pdf-bookmark="A more general model"><h1>A more general model</h1><p>Given the size of a tumor at time of diagnosis, it would be most
+    useful to know the probability that the tumor formed before any given
+    date; in other words, the distribution of ages.<a data-type="indexterm" data-primary="modeling" id="idp2996560"/><a data-type="indexterm" data-primary="simulation" id="idp2991824"/></p><p>To find it, I run simulations of tumor growth to get the
+    distribution of size conditioned on age. Then we can use a Bayesian
+    approach to get the distribution of age conditioned on size.<a data-type="indexterm" data-primary="conditional distribution" id="idp2988768"/></p><p>The simulation starts with a small tumor and runs these
+    steps:</p><ol><li><p>Choose a growth rate from the distribution of RDT.</p></li><li><p>Compute the size of the tumor at the end of an interval.</p></li><li><p>Record the size of the tumor at each interval.</p></li><li><p>Repeat until the tumor exceeds the maximum relevant size.</p></li></ol><p>For the initial size I chose 0.3 cm, because carcinomas smaller than
+    that are less likely to be invasive and less likely to have the blood
+    supply needed for rapid growth (see <a href="http://en.wikipedia.org/wiki/Carcinoma_in_situ" class="orm:hideurl">http://en.wikipedia.org/wiki/Carcinoma_in_situ</a>).<a data-type="indexterm" data-primary="carcinoma" id="idp2999952"/></p><p>I chose an interval of 245 days (about 8 months) because that is the
+    median time between measurements in the data source.</p><p>For the maximum size I chose 20 cm. In the data source, the range of
+    observed sizes is 1.0 to 12.0 cm, so we are extrapolating beyond the
+    observed range at each end, but not by far, and not in a way likely to
+    have a strong effect on the results.</p><p>The simulation is based on one big simplification: the growth rate
+    is chosen independently during each interval, so it does not depend on
+    age, size, or growth rate during previous intervals.<a data-type="indexterm" data-primary="independence" id="idp3003136"/></p><p>In <a data-type="xref" href="#serial">“Serial Correlation”</a> I review these assumptions and consider
+    more detailed models. But first let’s look at some examples.</p><p><a data-type="xref" href="#fig.kidney4">Figure 13-2</a> shows the size of simulated tumors as
+    a function of age. The dashed line at 10 cm shows the range of ages for
+    tumors at that size: the fastest-growing tumor gets there in 8 years; the
+    slowest takes more than 35.</p><figure id="fig.kidney4" style="float: none"><img src="images/thba_1302.png"/><figcaption>Simulations of tumor growth, size vs. time.</figcaption></figure><p>I am presenting results in terms of linear measurements, but the
+    calculations are in terms of volume. To convert from one to the other,
+    again, I use the volume of a sphere with the given diameter.<a data-type="indexterm" data-primary="volume" id="idp3000816"/><a data-type="indexterm" data-primary="sphere" id="idp3007376"/></p></section><section data-type="sect1" id="a0000005729" data-pdf-bookmark="Implementation"><h1>Implementation</h1><p>Here is the kernel of the simulation:<a data-type="indexterm" data-primary="simulation" id="idp3008432"/></p><pre data-type="programlisting">def MakeSequence(rdt_seq, v0=0.01, interval=0.67, vmax=Volume(20.0)):
+    seq = v0,
+    age = 0
+
+    for rdt in rdt_seq:
+        age += interval
+        final, seq = ExtendSequence(age, seq, rdt, interval)
+        if final &gt; vmax:
+            break
+
+    return seq</pre><p><code>rdt_seq</code> is an
+    iterator that yields random values from the CDF of growth rate. <code>v0</code> is the initial volume in mL. <code>interval</code> is the time step in years. <code>vmax</code> is the final volume corresponding to a
+    linear measurement of 20 cm.<a data-type="indexterm" data-primary="iterator" id="idp3014560"/></p><p><code>Volume</code> converts from linear
+    measurement in cm to volume in mL, based on the simplification that the
+    tumor is a sphere:</p><pre data-type="programlisting">def Volume(diameter, factor=4*math.pi/3):
+    return factor * (diameter/2.0)**3</pre><p><code>ExtendSequence</code> computes the
+    volume of the tumor at the end of the interval.</p><pre data-type="programlisting">def ExtendSequence(age, seq, rdt, interval):
+    initial = seq[-1]
+    doublings = rdt * interval
+    final = initial * 2**doublings
+    new_seq = seq + (final,)
+    cache.Add(age, new_seq, rdt)
+    
+    return final, new_seq</pre><p><code>age</code> is the age of the tumor at
+    the end of the interval. <code>seq</code> is a tuple
+    that contains the volumes so far. <code>rdt</code>
+    is the growth rate during the interval, in doublings per year. <code>interval</code> is the size of the time step in
+    years.</p><p>The return values are <code>final</code>, the
+    volume of the tumor at the end of the interval, and <code>new_seq</code>, a new tuple containing the
+    volumes in <code>seq</code> plus the new volume
+    <code>final</code>.</p><p><code>Cache.Add</code> records the age and
+    size of each tumor at the end of each interval, as explained in the next
+    section.<a data-type="indexterm" data-primary="cache" id="idp3021536"/></p></section><div class="hard-pagebreak"/><section data-type="sect1" id="a0000005772" data-pdf-bookmark="Caching the joint distribution"><h1>Caching the joint distribution</h1><p>Here’s how the cache works.</p><pre data-type="programlisting">class Cache(object):
+
+    def __init__(self):
+        self.joint = thinkbayes.Joint()</pre><p><code>joint</code> is a joint Pmf that records
+    the frequency of each age-size pair, so it approximates the joint
+    distribution of age and size.<a data-type="indexterm" data-primary="joint distribution" id="idp3024736"/></p><p>At the end of each simulated interval, <code>ExtendSequence</code> calls <code>Add</code>:</p><pre data-type="programlisting"># class Cache
+
+    def Add(self, age, seq):
+        final = seq[-1]
+        cm = Diameter(final)
+        bucket = round(CmToBucket(cm))
+        self.joint.Incr((age, bucket))</pre><p>Again, <code>age</code> is the age of the
+    tumor, and <code>seq</code> is the sequence of
+    volumes so far.</p><p>Before adding the new data to the joint distribution, we use
+    <code>Diameter</code> to convert from volume to
+    diameter in centimeters:</p><pre data-type="programlisting">def Diameter(volume, factor=3/math.pi/4, exp=1/3.0):
+    return 2 * (factor * volume) ** exp</pre><p>And <code>CmToBucket</code> to convert from
+    centimeters to a discrete bucket number:</p><pre data-type="programlisting">def CmToBucket(x, factor=10):
+    return factor * math.log(x)</pre><p>The buckets are equally spaced on a log scale. Using <code>factor=10</code> yields a reasonable number of buckets;
+    for example, 1 cm maps to bucket 0 and 10 cm maps to bucket 23.<a data-type="indexterm" data-primary="log scale" id="idp3029200"/><a data-type="indexterm" data-primary="bucket" id="idp3031056"/></p><p>After running the simulations, we can plot the joint distribution as
+    a pseudocolor plot, where each cell represents the number of tumors
+    observed at a given size-age pair. <a data-type="xref" href="#fig.kidney8">Figure 13-3</a> shows
+    the joint distribution after 1000 simulations.<a data-type="indexterm" data-primary="pseudocolor plot" id="idp3035648"/></p><figure id="fig.kidney8" style="float: none"><img src="images/thba_1303.png"/><figcaption>Joint distribution of age and tumor size.</figcaption></figure></section><section data-type="sect1" id="a0000005826" data-pdf-bookmark="Conditional distributions"><h1>Conditional distributions</h1><p>By taking a vertical slice from the joint distribution, we can get
+    the distribution of sizes for any given age. By taking a horizontal slice,
+    we can get the distribution of ages conditioned on size.<a data-type="indexterm" data-primary="conditional distribution" id="idp3035216"/></p><p>Here’s the code that reads the joint distribution and builds the
+    conditional distribution for a given size.<a data-type="indexterm" data-primary="joint distribution" id="idp3039376"/></p><pre data-type="programlisting"># class Cache
+
+    def ConditionalCdf(self, bucket):
+        pmf = self.joint.Conditional(0, 1, bucket)
+        cdf = pmf.MakeCdf()
+        return cdf</pre><p><code>bucket</code> is the
+    integer bucket number corresponding to tumor size. <code>Joint.Conditional</code> computes the PMF of age
+    conditioned on <code>bucket</code>. The result is
+    the CDF of age conditioned on <code>bucket</code>.</p><div class="hard-pagebreak"/><p><a data-type="xref" href="#fig.kidney6">Figure 13-4</a> shows several of these CDFs, for a
+    range of sizes. To summarize these distributions, we can compute
+    percentiles as a function of size.<a data-type="indexterm" data-primary="percentile" id="idp3044544"/></p><figure id="fig.kidney6" style="float: none"><img src="images/thba_1304.png"/><figcaption>Distributions of age, conditioned on size.</figcaption></figure><pre data-type="programlisting">    percentiles = [95, 75, 50, 25, 5]
+
+    for bucket in cache.GetBuckets():
+        cdf = ConditionalCdf(bucket)      
+        ps = [cdf.Percentile(p) for p in percentiles]</pre><p><a data-type="xref" href="#fig.kidney7">Figure 13-5</a> shows these percentiles for each size
+    bucket. The data points are computed from the estimated joint
+    distribution. In the model, size and time are discrete, which contributes
+    numerical errors, so I also show a least squares fit for each sequence of
+    percentiles.<a data-type="indexterm" data-primary="least squares fit" id="idp3046448"/></p><figure id="fig.kidney7" style="float: none"><img src="images/thba_1305.png"/><figcaption>Percentiles of tumor age as a function of size.</figcaption></figure></section><section data-type="sect1" id="serial" data-pdf-bookmark="Serial Correlation"><h1>Serial Correlation</h1><p>The results so far are based on a number of modeling decisions;
+    let’s review them and consider which ones are the most likely sources of
+    error:<a data-type="indexterm" data-primary="modeling error" id="idp3050896"/></p><ul><li><p>To convert from linear measure to volume, we assume that tumors
+        are approximately spherical. This assumption is probably fine for
+        tumors up to a few centimeters, but not for very large
+        tumors.<a data-type="indexterm" data-primary="sphere" id="idp3053120"/></p></li><li><p>The distribution of growth rates in the simulations are based on
+        a continuous model we chose to fit the data reported by Zhang et al,
+        which is based on 53 patients. The fit is only approximate and, more
+        importantly, a larger sample would yield a different
+        distribution.<a data-type="indexterm" data-primary="growth rate" id="idp3054240"/></p></li><li><p>The growth model does not take into account tumor subtype or
+        grade; this assumption is consistent with the conclusion of Zhang et
+        al: “Growth rates in renal tumors of different sizes, subtypes and
+        grades represent a wide range and overlap substantially.” But with a
+        larger sample, a difference might become apparent.<a data-type="indexterm" data-primary="tumor type" id="idp3061216"/></p></li><li><p>The distribution of growth rate does not depend on the size of
+        the tumor. This assumption would not be realistic for very small and
+        very large tumors, whose growth is limited by blood supply.</p><p>But tumors observed by Zhang et al ranged from 1 to 12 cm, and
+        they found no statistically significant relationship between size and
+        growth rate. So if there is a relationship, it is likely to be weak,
+        at least in this size range.</p></li><li><p>In the simulations, growth rate during each interval is
+        independent of previous growth rates. In reality it is plausible that
+        tumors that have grown quickly in the past are more likely to grow
+        quickly. In other words, there is probably a serial correlation in
+        growth rate.<a data-type="indexterm" data-primary="serial correlation" id="idp3057056"/></p></li></ul><p>Of these, the first and last seem the most problematic. I’ll
+    investigate serial correlation first, then come back to spherical
+    geometry.</p><p>To simulate correlated growth, I wrote a generator<a data-type="noteref" id="idp3056480-marker" href="ch13.html#idp3056480"><sup>4</sup></a> that yields a correlated series from a given Cdf. Here’s how
+    the algorithm works:<a data-type="indexterm" data-primary="generator" id="idp3064576"/></p><ol><li><p>Generate correlated values from a Gaussian distribution. This is
+        easy to do because we can compute the distribution of the next value
+        conditioned on the previous value.<a data-type="indexterm" data-primary="Gaussian distribution" id="idp3060528"/></p></li><li><p>Transform each value to its cumulative probability using the
+        Gaussian CDF.<a data-type="indexterm" data-primary="cumulative probability" id="idp3066896"/></p></li><li><p>Transform each cumulative probability to the corresponding value
+        using the given Cdf.</p></li></ol><p>Here’s what that looks like in code:</p><pre data-type="programlisting">def CorrelatedGenerator(cdf, rho):
+    x = random.gauss(0, 1)
+    yield Transform(x)
+
+    sigma = math.sqrt(1 - rho**2);    
+    while True:
+        x = random.gauss(x * rho, sigma)
+        yield Transform(x)</pre><p><code>cdf</code> is the desired Cdf; <code>rho</code> is the desired correlation. The values of
+    <code>x</code> are Gaussian; <code>Transform</code> converts them to the desired
+    distribution.</p><p>The first value of <code>x</code> is Gaussian
+    with mean 0 and standard deviation 1. For subsequent values, the mean and
+    standard deviation depend on the previous value. Given the previous
+    <code>x</code>, the mean of the next value is
+    <code>x * rho</code>, and the variance is <code>1 - rho**2</code>.<a data-type="indexterm" data-primary="correlated random value" id="idp3071664"/></p><div class="hard-pagebreak"/><p><code>Transform</code> maps from each Gaussian
+    value, <code>x</code>, to a value from the given
+    Cdf, <code>y</code>.</p><pre data-type="programlisting">    def Transform(x):
+        p = thinkbayes.GaussianCdf(x)
+        y = cdf.Value(p)
+        return y</pre><p><code>GaussianCdf</code> computes the CDF of
+    the standard Gaussian distribution at <code>x</code>, returning a cumulative probability. <code>Cdf.Value</code> maps from a cumulative probability to
+    the corresponding value in <code>cdf</code>.</p><p>Depending on the shape of <code>cdf</code>,
+    information can be lost in transformation, so the actual correlation might
+    be lower than <code>rho</code>. For example, when I
+    generate 10000 values from the distribution of growth rates with <code>rho=0.4</code>, the actual correlation is 0.37. But
+    since we are guessing at the right correlation anyway, that’s close
+    enough.</p><p>Remember that <code>MakeSequence</code> takes
+    an iterator as an argument. That interface allows it to work with
+    different generators:<a data-type="indexterm" data-primary="generator" id="idp3081328"/></p><pre data-type="programlisting">    iterator = UncorrelatedGenerator(cdf)
+    seq1 = MakeSequence(iterator)
+
+    iterator = CorrelatedGenerator(cdf, rho)
+    seq2 = MakeSequence(iterator)</pre><p>In this example, <code>seq1</code> and
+    <code>seq2</code> are drawn from the same
+    distribution, but the values in <code>seq1</code>
+    are uncorrelated and the values in <code>seq2</code>
+    are correlated with a coefficient of approximately <code>rho</code>.<a data-type="indexterm" data-primary="serial correlation" id="idp3080176"/></p><p>Now we can see what effect serial correlation has on the results;
+    the following table shows percentiles of age for a 6 cm tumor, using the
+    uncorrelated generator and a correlated generator with target
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>ρ</mml:mi>
+
+            <mml:mo>=</mml:mo>
+
+            <mml:mn>0</mml:mn>
+
+            <mml:mo>.</mml:mo>
+
+            <mml:mn>4</mml:mn>
+          </mml:mrow>
+        </math>.<a data-type="indexterm" data-primary="percentile" id="idp3087536"/></p><table id="a0000006021"><caption>Percentiles of tumor age conditioned on size.</caption><tbody><tr><td><p>Serial </p></td><td><p> Diameter </p></td><td><p> Percentiles of age
+              </p></td></tr><tr><td><p>Correlation </p></td><td><p> (cm) </p></td><td><p> 5th </p></td><td><p> 25th </p></td><td><p> 50th </p></td><td><p> 75th </p></td><td><p> 95th </p></td></tr><tr><td><p>0.0 </p></td><td><p> 6.0 </p></td><td><p> 10.7 </p></td><td><p> 15.4 </p></td><td><p> 19.5 </p></td><td><p> 23.5 </p></td><td><p> 30.2 </p></td></tr><tr><td><p>0.4 </p></td><td><p> 6.0 </p></td><td><p> 9.4 </p></td><td><p> 15.4 </p></td><td><p> 20.8 </p></td><td><p> 26.2 </p></td><td><p> 36.9 </p></td></tr></tbody></table><p>Correlation makes the fastest growing tumors faster and the slowest
+    slower, so the range of ages is wider. The difference is modest for low
+    percentiles, but for the 95th percentile it is more than 6 years. To
+    compute these percentiles precisely, we would need a better estimate of
+    the actual serial correlation.</p><p>However, this model is sufficient to answer the question we started
+    with: given a tumor with a linear dimension of 15.5 cm, what is the
+    probability that it formed more than 8 years ago?</p><p>Here’s the code:</p><pre data-type="programlisting"># class Cache
+
+    def ProbOlder(self, cm, age):
+        bucket = CmToBucket(cm)
+        cdf = self.ConditionalCdf(bucket)
+        p = cdf.Prob(age)
+        return 1-p</pre><p><code>cm</code> is the size of the tumor;
+    <code>age</code> is the age threshold in years.
+    <code>ProbOlder</code> converts size to a bucket
+    number, gets the Cdf of age conditioned on bucket, and computes the
+    probability that age exceeds the given value.</p><p>With no serial correlation, the probability that a 15.5 cm tumor is
+    older than 8 years is 0.999, or almost certain. With correlation 0.4,
+    faster-growing tumors are more likely, but the probability is still 0.995.
+    Even with correlation 0.8, the probability is 0.978.</p><p>Another likely source of error is the assumption that tumors are
+    approximately spherical. For a tumor with linear dimensions 15.5 x 15 cm,
+    this assumption is probably not valid. If, as seems likely, a tumor this
+    size is relatively flat, it might have the same volume as a 6 cm sphere.
+    With this smaller volume and correlation 0.8, the probability of age
+    greater than 8 is still 95%.</p><p>So even taking into account modeling errors, it is unlikely that
+    such a large tumor could have formed less than 8 years prior to the date
+    of diagnosis.<a data-type="indexterm" data-primary="modeling error" id="idp3106384"/></p></section><section data-type="sect1" id="a0000006039" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>Well, we got through a whole chapter without using Bayes’s theorem
+    or the <code>Suite</code> class that encapsulates
+    Bayesian updates. What happened?</p><p>One way to think about Bayes’s theorem is as an algorithm for
+    inverting conditional probabilities. Given <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>B</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>A</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math>, we can compute <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>A</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>B</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math>, provided we know <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>A</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math> and <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>B</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math>. Of course this algorithm is only useful if, for some
+    reason, it is easier to compute <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>B</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>A</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math> than <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>A</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>B</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math>.</p><p>In this example, it is. By running simulations, we can estimate the
+    distribution of size conditioned on age, or <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>s</mml:mi>
+
+            <mml:mi>i</mml:mi>
+
+            <mml:mi>z</mml:mi>
+
+            <mml:mi>e</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>a</mml:mi>
+
+            <mml:mi>g</mml:mi>
+
+            <mml:mi>e</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math>. But it is harder to get the distribution of age
+    conditioned on size, or <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>a</mml:mi>
+
+            <mml:mi>g</mml:mi>
+
+            <mml:mi>e</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>s</mml:mi>
+
+            <mml:mi>i</mml:mi>
+
+            <mml:mi>z</mml:mi>
+
+            <mml:mi>e</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math>. So this seems like a perfect opportunity to use
+    Bayes’s theorem.</p><p>The reason I didn’t is computational efficiency. To estimate
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>s</mml:mi>
+
+            <mml:mi>i</mml:mi>
+
+            <mml:mi>z</mml:mi>
+
+            <mml:mi>e</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>a</mml:mi>
+
+            <mml:mi>g</mml:mi>
+
+            <mml:mi>e</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math> for any given size, you have to run a lot of
+    simulations. Along the way, you end up computing <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>s</mml:mi>
+
+            <mml:mi>i</mml:mi>
+
+            <mml:mi>z</mml:mi>
+
+            <mml:mi>e</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>a</mml:mi>
+
+            <mml:mi>g</mml:mi>
+
+            <mml:mi>e</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math> for a lot of sizes. In fact, you end up computing the
+    entire joint distribution of size and age, <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>s</mml:mi>
+
+            <mml:mi>i</mml:mi>
+
+            <mml:mi>z</mml:mi>
+
+            <mml:mi>e</mml:mi>
+
+            <mml:mo>,</mml:mo>
+
+            <mml:mi>a</mml:mi>
+
+            <mml:mi>g</mml:mi>
+
+            <mml:mi>e</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math>.<a data-type="indexterm" data-primary="joint distribution" id="idp3163152"/></p><p>And once you have the joint distribution, you don’t really need
+    Bayes’s theorem, you can extract <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>a</mml:mi>
+
+            <mml:mi>g</mml:mi>
+
+            <mml:mi>e</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>s</mml:mi>
+
+            <mml:mi>i</mml:mi>
+
+            <mml:mi>z</mml:mi>
+
+            <mml:mi>e</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math> by taking slices from the joint distribution, as
+    demonstrated in <code>ConditionalCdf</code>.<a data-type="indexterm" data-primary="conditional distribution" id="idp3170576"/></p><p>So we side-stepped Bayes, but he was with us in spirit.</p></section><aside data-type="footnotes"><p data-type="footnote" id="idp2962128"><a href="ch13.html#idp2962128-marker"><sup>3</sup></a> Zhang et al, Distribution of Renal Tumor Growth Rates Determined
+        by Using Serial Volumetric CT Measurements, January 2009
+        <em>Radiology</em>, 250, 137-144.</p><p data-type="footnote" id="idp3056480"><a href="ch13.html#idp3056480-marker"><sup>4</sup></a> If you are not familiar with Python generators, see <a href="http://wiki.python.org/moin/Generators" class="orm:hideurl">http://wiki.python.org/moin/Generators</a>.</p></aside></section>
+  </body>
+</html>

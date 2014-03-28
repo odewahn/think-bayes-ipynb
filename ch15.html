@@ -1,0 +1,791 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="species" data-pdf-bookmark="Chapter 15. Dealing with Dimensions"><h1>Dealing with Dimensions</h1><section data-type="sect1" id="a0000006356" data-pdf-bookmark="Belly button bacteria"><h1>Belly button bacteria</h1><p>Belly Button Biodiversity 2.0 (BBB2) is a nation-wide citizen
+    science project with the goal of identifying bacterial species that can be
+    found in human navels (<a href="http://bbdata.yourwildlife.org" class="orm:hideurl">http://bbdata.yourwildlife.org</a>).
+    The project might seem whimsical, but it is part of an increasing interest
+    in the human microbiome, the set of microorganisms that live on human skin
+    and parts of the body.<a data-type="indexterm" data-primary="biodiversity" id="idp3284256"/><a data-type="indexterm" data-primary="belly button" id="idp3286784"/><a data-type="indexterm" data-primary="bacteria" id="idp3287392"/><a data-type="indexterm" data-primary="microbiome" id="idp3285040"/></p><p>In their pilot study, BBB2 researchers collected swabs from the
+    navels of 60 volunteers, used multiplex pyrosequencing to extract and
+    sequence fragments of 16S rDNA, then identified the species or genus the
+    fragments came from. Each identified fragment is called a
+    “read.”<a data-type="indexterm" data-primary="navel" id="idp3284864"/><a data-type="indexterm" data-primary="rDNA" id="idp3288368"/><a data-type="indexterm" data-primary="pyrosequencing" id="idp3288928"/></p><p>We can use these data to answer several related questions:</p><ul><li><p>Based on the number of species observed, can we estimate the
+        total number of species in the environment?<a data-type="indexterm" data-primary="species" id="idp3289728"/></p></li><li><p>Can we estimate the prevalence of each species; that is, the
+        fraction of the total population belonging to each species?<a data-type="indexterm" data-primary="prevalence" id="idp3290512"/></p></li><li><p>If we are planning to collect additional samples, can we predict
+        how many new species we are likely to discover?</p></li><li><p>How many additional reads are needed to increase the fraction of
+        observed species to a given threshold?</p></li></ul><p>These questions make up what is called the <strong>Unseen Species problem</strong>.<a data-type="indexterm" data-primary="Unseen Species problem" id="idp3293440"/></p></section><section data-type="sect1" id="a0000006379" data-pdf-bookmark="Lions and tigers and bears"><h1>Lions and tigers and bears</h1><p>I’ll start with a simplified version of the problem where we know
+    that there are exactly three species. Let’s call them lions, tigers and
+    bears. Suppose we visit a wild animal preserve and see 3 lions, 2 tigers
+    and one bear.<a data-type="indexterm" data-primary="lions and tigers and bears" id="idp3296816"/></p><p>If we have an equal chance of observing any animal in the preserve,
+    the number of each species we see is governed by the multinomial
+    distribution. If the prevalence of lions and tigers and bears is <code>p_lion</code> and <code>p_tiger</code> and <code>p_bear</code>, the likelihood of seeing 3 lions, 2 tigers
+    and one bear is<a data-type="indexterm" data-primary="multinomial distribution" id="idp3298704"/></p><pre data-type="programlisting">p_lion**3 * p_tiger**2 * p_bear**1</pre><p>An approach that is tempting, but not correct, is to use beta
+    distributions, as in <a data-type="xref" href="ch04.html#beta">“The beta distribution”</a>, to describe the prevalence
+    of each species separately. For example, we saw 3 lions and 3 non-lions;
+    if we think of that as 3 “heads” and 3 “tails,” then the posterior
+    distribution of <code>p_lion</code>
+    is:<a data-type="indexterm" data-primary="beta distribution" id="idp3302176"/></p><pre data-type="programlisting">    beta = thinkbayes.Beta()
+    beta.Update((3, 3))
+    print beta.MaximumLikelihood()</pre><p>The maximum likelihood estimate for <code>p_lion</code> is the observed rate, 50%. Similarly the
+    MLEs for <code>p_tiger</code> and
+    <code>p_bear</code> are 33% and
+    17%.<a data-type="indexterm" data-primary="maximum likelihood" id="idp3307744"/></p><p>But there are two problems:</p><ol><li><p>We have implicitly used a prior for each species that is uniform
+        from 0 to 1, but since we know that there are three species, that
+        prior is not correct. The right prior should have a mean of 1/3, and
+        there should be zero likelihood that any species has a prevalence of
+        100%.</p></li><li><p>The distributions for each species are not independent, because
+        the prevalences have to add up to 1. To capture this dependence, we
+        need a joint distribution for the three prevalences.<a data-type="indexterm" data-primary="independence" id="idp3305264"/><a data-type="indexterm" data-primary="joint distribution" id="idp3304704"/></p></li></ol><p>We can use a Dirichlet distribution to solve both of these problems
+    (see <a href="http://en.wikipedia.org/wiki/Dirichlet_distribution" class="orm:hideurl">http://en.wikipedia.org/wiki/Dirichlet_distribution</a>).
+    In the same way we used the beta distribution to describe the distribution
+    of bias for a coin, we can use a Dirichlet distribution to describe the
+    joint distribution of <code>p_lion</code>, <code>p_tiger</code> and <code>p_bear</code>.<a data-type="indexterm" data-primary="Dirichlet distribution" id="idp3310784"/></p><p>The Dirichlet distribution is the multi-dimensional generalization
+    of the beta distribution. Instead of two possible outcomes, like heads and
+    tails, the Dirichlet distribution handles any number of outcomes: in this
+    example, three species.</p><p>If there are <code>n</code> outcomes, the
+    Dirichlet distribution is described by <code>n</code> parameters, written <em>α<sub>1</sub></em> through <em>α<sub>n</sub></em>.</p><p>Here’s the definition, from <code>thinkbayes.py</code>, of a class that represents a
+    Dirichlet distribution:<a data-type="indexterm" data-primary="numpy" id="idp3317552"/></p><pre data-type="programlisting">class Dirichlet(object):
+
+    def __init__(self, n):
+        self.n = n
+        self.params = numpy.ones(n, dtype=numpy.int)</pre><p><code>n</code> is the number of dimensions;
+    initially the parameters are all 1. I use a <code>numpy</code> array to store the parameters so I can
+    take advantage of array operations.</p><p>Given a Dirichlet distribution, the marginal distribution for each
+    prevalence is a beta distribution, which we can compute like this:</p><pre data-type="programlisting">    def MarginalBeta(self, i):
+        alpha0 = self.params.sum()
+        alpha = self.params[i]
+        return Beta(alpha, alpha0-alpha)</pre><p><code>i</code> is the index of the marginal
+    distribution we want. <code>alpha0</code> is the sum
+    of the parameters; <code>alpha</code> is the
+    parameter for the given species.<a data-type="indexterm" data-primary="marginal distribution" id="idp3322864"/></p><p>In the example, the prior marginal distribution for each species is
+    <code>Beta(1, 2)</code>. We can compute the prior
+    means like this:</p><pre data-type="programlisting">    dirichlet = thinkbayes.Dirichlet(3)
+    for i in range(3):
+        beta = dirichlet.MarginalBeta(i)
+        print beta.Mean()</pre><p>As expected, the prior mean prevalence for each species is
+    1/3.</p><p>To update the Dirichlet distribution, we add the observations to the
+    parameters like this:</p><pre data-type="programlisting">    def Update(self, data):
+        m = len(data)
+        self.params[:m] += data</pre><p>Here <code>data</code> is a sequence of counts
+    in the same order as <code>params</code>, so in this
+    example, it should be the number of lions, tigers and bears.</p><p><code>data</code> can be shorter than <code>params</code>; in that case there are some species that
+    have not been observed.</p><p>Here’s code that updates <code>dirichlet</code> with the observed data and computes
+    the posterior marginal distributions.</p><pre data-type="programlisting">    data = [3, 2, 1]
+    dirichlet.Update(data)
+
+    for i in range(3):
+        beta = dirichlet.MarginalBeta(i)
+        pmf = beta.MakePmf()
+        print i, pmf.Mean()</pre><p><a data-type="xref" href="#fig.species1">Figure 15-1</a> shows the results. The posterior
+    mean prevalences are 44%, 33%, and 22%.</p><figure id="fig.species1" style="float: none"><img src="images/thba_1501.png"/><figcaption>Distribution of prevalences for three species.</figcaption></figure></section><section data-type="sect1" id="a0000006487" data-pdf-bookmark="The hierarchical version"><h1>The hierarchical version</h1><p>We have solved a simplified version of the problem: if we know how
+    many species there are, we can estimate the prevalence of each.<a data-type="indexterm" data-primary="prevalence" id="idp3296224"/></p><p>Now let’s get back to the original problem, estimating the total
+    number of species. To solve this problem I’ll define a meta-Suite, which
+    is a Suite that contains other Suites as hypotheses. In this case, the
+    top-level Suite contains hypotheses about the number of species; the
+    bottom level contains hypotheses about prevalences.<a data-type="indexterm" data-primary="hierarchical model" id="idp3340544"/><a data-type="indexterm" data-primary="meta-Suite" id="idp3341104"/></p><p>Here’s the class definition:</p><pre data-type="programlisting">class Species(thinkbayes.Suite):
+
+    def __init__(self, ns):
+        hypos = [thinkbayes.Dirichlet(n) for n in ns]
+        thinkbayes.Suite.__init__(self, hypos)</pre><p><code>__init__</code> takes a
+    list of possible values for <code>n</code> and makes
+    a list of Dirichlet objects.</p><p>Here’s the code that creates the top-level suite:</p><pre data-type="programlisting">    ns = range(3, 30)
+    suite = Species(ns)</pre><p><code>ns</code> is the list of possible values
+    for <code>n</code>. We have seen 3 species, so there
+    have to be at least that many. I chose an upper bound that seems
+    reasonable, but we will check later that the probability of exceeding this
+    bound is low. And at least initially we assume that any value in this
+    range is equally likely.</p><p>To update a hierarchical model, you have to update all levels.
+    Usually you have to update the bottom level first and work up, but in this
+    case we can update the top level first:</p><pre data-type="programlisting">#class Species
+
+    def Update(self, data):
+        thinkbayes.Suite.Update(self, data)
+        for hypo in self.Values():
+            hypo.Update(data)</pre><p><code>Species.Update</code> invokes <code>Update</code> in the parent class, then loops through
+    the sub-hypotheses and updates them.</p><p>Now all we need is a likelihood function:</p><pre data-type="programlisting"># class Species
+
+    def Likelihood(self, data, hypo):
+        dirichlet = hypo
+        like = 0
+        for i in range(1000):
+            like += dirichlet.Likelihood(data)
+
+        return like</pre><p><code>data</code> is a sequence of observed
+    counts; <code>hypo</code> is a Dirichlet object.
+    <code>Species.Likelihood</code> calls <code>Dirichlet.Likelihood</code> 1000 times and returns the
+    total.</p><p>Why call it 1000 times? Because <code>Dirichlet.Likelihood</code> doesn’t actually compute
+    the likelihood of the data under the whole Dirichlet distribution.
+    Instead, it draws one sample from the hypothetical distribution and
+    computes the likelihood of the data under the sampled set of
+    prevalences.</p><p>Here’s what it looks like:</p><pre data-type="programlisting"># class Dirichlet
+
+    def Likelihood(self, data):
+        m = len(data)
+        if self.n &lt; m:
+            return 0
+
+        x = data
+        p = self.Random()
+        q = p[:m]**x
+        return q.prod()</pre><p>The length of <code>data</code> is the number
+    of species observed. If we see more species than we thought existed, the
+    likelihood is 0.</p><p><a data-type="indexterm" data-primary="multinomial distribution" id="idp3348528"/>Otherwise we select a random set of prevalences, <code>p</code>, and compute the multinomial PMF, which
+    is</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:msub>
+              <mml:mi>c</mml:mi>
+
+              <mml:mi>x</mml:mi>
+            </mml:msub>
+
+            <mml:msubsup>
+              <mml:mi>p</mml:mi>
+
+              <mml:mn>1</mml:mn>
+
+              <mml:msub>
+                <mml:mi>x</mml:mi>
+
+                <mml:mn>1</mml:mn>
+              </mml:msub>
+            </mml:msubsup>
+
+            <mml:mo>⋯</mml:mo>
+
+            <mml:msubsup>
+              <mml:mi>p</mml:mi>
+
+              <mml:mi>n</mml:mi>
+
+              <mml:msub>
+                <mml:mi>x</mml:mi>
+
+                <mml:mi>n</mml:mi>
+              </mml:msub>
+            </mml:msubsup>
+          </mml:mrow>
+        </math></div><p><em>p<sub>i</sub></em> is the
+    prevalence of the <em>i</em>th species, and
+    <em>x<sub>i</sub></em> is the observed
+    number. The first term, <em>c<sub>x</sub></em>, is the multinomial
+    coefficient; I leave it out of the computation because it is a
+    multiplicative factor that depends only on the data, not the hypothesis,
+    so it gets normalized away (see <a href="http://en.wikipedia.org/wiki/Multinomial_distribution" class="orm:hideurl">http://en.wikipedia.org/wiki/Multinomial_distribution</a>).<a data-type="indexterm" data-primary="multinomial coefficient" id="idp3363520"/></p><p><code>m</code> is the number of observed
+    species. We only need the first <code>m</code>
+    elements of <code>p</code>; for the others,
+    <em>x<sub>i</sub></em> is 0, so
+    <em>p<sub>i</sub><sup>x<sub>i</sub></sup></em>
+    is 1, and we can leave them out of the product.</p></section><section data-type="sect1" id="randomdir" data-pdf-bookmark="Random sampling"><h1>Random sampling</h1><p>There are two ways to generate a random sample from a Dirichlet
+    distribution. One is to use the marginal beta distributions, but in that
+    case you have to select one at a time and scale the rest so they add up to
+    1 (see <a href="http://en.wikipedia.org/wiki/Dirichlet_distribution#Random_number_generation" class="orm:hideurl">http://en.wikipedia.org/wiki/Dirichlet_distribution#Random_number_generation</a>).<a data-type="indexterm" data-primary="random sample" id="idp3369056"/><a data-type="indexterm" data-primary="numpy" id="idp3369664"/></p><p>A less obvious, but faster, way is to select values from <code>n</code> gamma distributions, then normalize by
+    dividing through by the total. Here’s the code:<a data-type="indexterm" data-primary="gamma distribution" id="idp3371456"/></p><pre data-type="programlisting"># class Dirichlet
+
+    def Random(self):
+        p = numpy.random.gamma(self.params)
+        return p / p.sum()</pre><p>Now we’re ready to look at some results. Here is the code that
+    extracts the posterior distribution of <code>n</code>:</p><pre data-type="programlisting">    def DistOfN(self):
+        pmf = thinkbayes.Pmf()
+        for hypo, prob in self.Items():
+            pmf.Set(hypo.n, prob)
+        return pmf</pre><p><code>DistOfN</code> iterates through the
+    top-level hypotheses and accumulates the probability of each <code>n</code>.</p><p><a data-type="xref" href="#fig.species2">Figure 15-2</a> shows the result. The most likely
+    value is 4. Values from 3 to 7 are reasonably likely; after that the
+    probabilities drop off quickly. The probability that there are 29 species
+    is low enough to be negligible; if we chose a higher bound, we would get
+    nearly the same result.</p><figure id="fig.species2" style="float: none"><img src="images/thba_1502.png"/><figcaption>Posterior distribution of n.</figcaption></figure><p>Remember that this result is based on a uniform prior for <code>n</code>. If we have background information about the
+    number of species in the environment, we might choose a different
+    prior.<a data-type="indexterm" data-primary="uniform distribution" id="idp3377616"/></p></section><section data-type="sect1" id="a0000006607" data-pdf-bookmark="Optimization"><h1>Optimization</h1><p>I have to admit that I am proud of this example. The Unseen Species
+    problem is not easy, and I think this solution is simple and clear, and
+    takes surprisingly few lines of code (about 50 so far).</p><p>The only problem is that it is slow. It’s good enough for the
+    example with only 3 observed species, but not good enough for the belly
+    button data, with more than 100 species in some samples.</p><p>The next few sections present a series of optimizations we need to
+    make this solution scale. Before we get into the details, here’s a road
+    map.<a data-type="indexterm" data-primary="optimization" id="idp3385136"/></p><ul><li><p>The first step is to recognize that if we update the Dirichlet
+        distributions with the same data, the first <code>m</code> parameters are the same for all of them.
+        The only difference is the number of hypothetical unseen species. So
+        we don’t really need <code>n</code> Dirichlet
+        objects; we can store the parameters in the top level of the
+        hierarchy. <code>Species2</code> implements this
+        optimization.</p></li><li><p><code>Species2</code> also uses the same
+        set of random values for all of the hypotheses. This saves time
+        generating random values, but it has a second benefit that turns out
+        to be more important: by giving all hypotheses the same selection from
+        the sample space, we make the comparison between the hypotheses more
+        fair, so it takes fewer iterations to converge.</p></li><li><p>Even with these changes there is a major performance problem. As
+        the number of observed species increases, the array of random
+        prevalences gets bigger, and the chance of choosing one that is
+        approximately right becomes small. So the vast majority of iterations
+        yield small likelihoods that don’t contribute much to the total, and
+        don’t discriminate between hypotheses.</p><p>The solution is to do the updates one species at a time.
+        <code>Species4</code> is a simple implementation
+        of this strategy using Dirichlet objects to represent the
+        sub-hypotheses.</p></li><li><p>Finally, <code>Species5</code> combines
+        the sub-hypotheses into the top level and uses <code>numpy</code> array operations to speed things
+        up.<a data-type="indexterm" data-primary="numpy" id="numpy-ch15"/></p></li></ul><p>If you are not interested in the details, feel free to skip to <a data-type="xref" href="#belly">“The belly button data”</a> where we look at results from the belly button
+    data.</p></section><section data-type="sect1" id="collapsing" data-pdf-bookmark="Collapsing the hierarchy"><h1>Collapsing the hierarchy</h1><p>All of the bottom-level Dirichlet distributions are updated with the
+    same data, so the first <code>m</code> parameters
+    are the same for all of them. We can eliminate them and merge the
+    parameters into the top-level suite. <code>Species2</code> implements this optimization:</p><pre data-type="programlisting">class Species2(object):
+    
+    def __init__(self, ns):
+        self.ns = ns
+        self.probs = numpy.ones(len(ns), dtype=numpy.double)
+        self.params = numpy.ones(self.high, dtype=numpy.int)</pre><p><code>ns</code> is the list of hypothetical
+    values for <code>n</code>; <code>probs</code> is the list of corresponding
+    probabilities. And <code>params</code> is the
+    sequence of Dirichlet parameters, initially all 1.</p><p><code>Species2.Update</code> updates both
+    levels of the hierarchy: first the probability for each value of <code>n</code>, then the Dirichlet parameters:</p><pre data-type="programlisting"># class Species2
+
+    def Update(self, data):
+        like = numpy.zeros(len(self.ns), dtype=numpy.double)
+        for i in range(1000):
+            like += self.SampleLikelihood(data)
+
+        self.probs *= like
+        self.probs /= self.probs.sum()
+
+        m = len(data)
+        self.params[:m] += data</pre><p><code>SampleLikelihood</code> returns an array
+    of likelihoods, one for each value of <code>n</code>. <code>like</code>
+    accumulates the total likelihood for 1000 samples. <code>self.probs</code> is multiplied by the total
+    likelihood, then normalized. The last two lines, which update the
+    parameters, are the same as in <code>Dirichlet.Update</code>.</p><p>Now let’s look at <code>SampleLikelihood</code>. There are two opportunities
+    for optimization here:</p><ul><li><p>When the hypothetical number of species, <code>n</code>, exceeds the observed number, <code>m</code>, we only need the first <code>m</code> terms of the multinomial PMF; the rest are
+        1.</p></li><li><p>If the number of species is large, the likelihood of the data
+        might be too small for floating-point (see <a data-type="xref" href="ch10.html#underflow">“Underflow”</a>). So it is safer to compute
+        log-likelihoods.<a data-type="indexterm" data-primary="log-likelihood" id="idp3406256"/><a data-type="indexterm" data-primary="underflow" id="idp3406864"/></p></li></ul><p><a data-type="indexterm" data-primary="multinomial distribution" id="idp3408080"/>Again, the multinomial PMF is</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:msub>
+              <mml:mi>c</mml:mi>
+
+              <mml:mi>x</mml:mi>
+            </mml:msub>
+
+            <mml:msubsup>
+              <mml:mi>p</mml:mi>
+
+              <mml:mn>1</mml:mn>
+
+              <mml:msub>
+                <mml:mi>x</mml:mi>
+
+                <mml:mn>1</mml:mn>
+              </mml:msub>
+            </mml:msubsup>
+
+            <mml:mo>⋯</mml:mo>
+
+            <mml:msubsup>
+              <mml:mi>p</mml:mi>
+
+              <mml:mi>n</mml:mi>
+
+              <mml:msub>
+                <mml:mi>x</mml:mi>
+
+                <mml:mi>n</mml:mi>
+              </mml:msub>
+            </mml:msubsup>
+          </mml:mrow>
+        </math></div><p>So the log-likelihood is</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mo form="prefix">log</mml:mo>
+
+            <mml:msub>
+              <mml:mi>c</mml:mi>
+
+              <mml:mi>x</mml:mi>
+            </mml:msub>
+
+            <mml:mo>+</mml:mo>
+
+            <mml:msub>
+              <mml:mi>x</mml:mi>
+
+              <mml:mn>1</mml:mn>
+            </mml:msub>
+
+            <mml:mo form="prefix">log</mml:mo>
+
+            <mml:msub>
+              <mml:mi>p</mml:mi>
+
+              <mml:mn>1</mml:mn>
+            </mml:msub>
+
+            <mml:mo>+</mml:mo>
+
+            <mml:mo>⋯</mml:mo>
+
+            <mml:mo>+</mml:mo>
+
+            <mml:msub>
+              <mml:mi>x</mml:mi>
+
+              <mml:mi>n</mml:mi>
+            </mml:msub>
+
+            <mml:mo form="prefix">log</mml:mo>
+
+            <mml:msub>
+              <mml:mi>p</mml:mi>
+
+              <mml:mi>n</mml:mi>
+            </mml:msub>
+          </mml:mrow>
+        </math></div><p>which is fast and easy to compute. Again, <em>c<sub>x</sub></em> it is the same for all
+    hypotheses, so we can drop it. Here’s the code:</p><pre data-type="programlisting"># class Species2
+
+    def SampleLikelihood(self, data):
+        gammas = numpy.random.gamma(self.params)
+
+        m = len(data)
+        row = gammas[:m]
+        col = numpy.cumsum(gammas)
+
+        log_likes = []
+        for n in self.ns:
+            ps = row / col[n-1]
+            terms = data * numpy.log(ps)
+            log_like = terms.sum()
+            log_likes.append(log_like)
+
+        log_likes -= numpy.max(log_likes)
+        likes = numpy.exp(log_likes)
+
+        coefs = [thinkbayes.BinomialCoef(n, m) for n in self.ns]
+        likes *= coefs
+
+        return likes</pre><p><code>gammas</code> is an array of values from
+    a gamma distribution; its length is the largest hypothetical value of
+    <code>n</code>. <code>row</code> is just the first <code>m</code> elements of <code>gammas</code>; since these are the only elements that
+    depend on the data, they are the only ones we need.<a data-type="indexterm" data-primary="gamma distribution" id="idp3435712"/></p><p>For each value of <code>n</code> we need to
+    divide <code>row</code> by the total of the first
+    <code>n</code> values from <code>gamma</code>. <code>cumsum</code>
+    computes these cumulative sums and stores them in <code>col</code>.<a data-type="indexterm" data-primary="cumulative sum" id="idp3437088"/></p><p>The loop iterates through the values of <code>n</code> and accumulates a list of
+    log-likelihoods.<a data-type="indexterm" data-primary="log-likelihood" id="idp3439568"/></p><p>Inside the loop, <code>ps</code> contains the
+    row of probabilities, normalized with the appropriate cumulative sum.
+    <code>terms</code> contains the terms of the
+    summation, <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:msub>
+              <mml:mi>x</mml:mi>
+
+              <mml:mi>i</mml:mi>
+            </mml:msub>
+
+            <mml:mo form="prefix">log</mml:mo>
+
+            <mml:msub>
+              <mml:mi>p</mml:mi>
+
+              <mml:mi>i</mml:mi>
+            </mml:msub>
+          </mml:mrow>
+        </math>, and <code>log_like</code> contains their sum.</p><p>After the loop, we want to convert the log-likelihoods to linear
+    likelihoods, but first it’s a good idea to shift them so the largest
+    log-likelihood is 0; that way the linear likelihoods are not too small
+    (see <a data-type="xref" href="ch10.html#underflow">“Underflow”</a>).</p><p>Finally, before we return the likelihood, we have to apply a
+    correction factor, which is the number of ways we could have observed
+    these <code>m</code> species, if the total number of
+    species is <code>n</code>. <code>BinomialCoefficient</code> computes “n choose m”, which
+    is written <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mfenced xmlns:mml="http://www.w3.org/1998/Math/MathML" close=")" open="(" separators="">
+            <mml:mfrac linethickness="0pt">
+              <mml:mi>n</mml:mi>
+
+              <mml:mi>m</mml:mi>
+            </mml:mfrac>
+          </mml:mfenced>
+        </math>.<a data-type="indexterm" data-primary="binomial coefficient" id="idp3452512"/></p><p>As often happens, the optimized version is less readable and more
+    error-prone than the original. But that’s one reason I think it is a good
+    idea to start with the simple version; we can use it for regression
+    testing. I plotted results from both versions and confirmed that they are
+    approximately equal, and that they converge as the number of iterations
+    increases.<a data-type="indexterm" data-primary="regression testing" id="idp3458736"/></p></section><section data-type="sect1" id="a0000006780" data-pdf-bookmark="One more problem"><h1>One more problem</h1><p>There’s more we could do to optimize this code, but there’s another
+    problem we need to fix first. As the number of observed species increases,
+    this version gets noisier and takes more iterations to converge on a good
+    answer.</p><p>The problem is that if the prevalences we choose from the Dirichlet
+    distribution, the <code>ps</code>, are not at least
+    approximately right, the likelihood of the observed data is close to zero
+    and almost equally bad for all values of <code>n</code>. So most iterations don’t provide any useful
+    contribution to the total likelihood. And as the number of observed
+    species, <code>m</code>, gets large, the probability
+    of choosing <code>ps</code> with non-negligible
+    likelihood gets small. Really small.</p><p>Fortunately, there is a solution. Remember that if you observe a set
+    of data, you can update the prior distribution with the entire dataset, or
+    you can break it up into a series of updates with subsets of the data, and
+    the result is the same either way.</p><p>For this example, the key is to perform the updates one species at a
+    time. That way when we generate a random set of <code>ps</code>, only one of them affects the computed
+    likelihood, so the chance of choosing a good one is much better.</p><p>Here’s a new version that updates one species at a time:</p><pre data-type="programlisting">class Species4(Species):
+
+    def Update(self, data):
+        m = len(data)
+
+        for i in range(m):
+            one = numpy.zeros(i+1)
+            one[i] = data[i]            
+            Species.Update(self, one)</pre><p>This version inherits <code>__init__</code> from <code>Species</code>, so it represents the hypotheses as a
+    list of Dirichlet objects (unlike <code>Species2</code>).</p><p><code>Update</code> loops through the observed
+    species and makes an array, <code>one</code>, with
+    all zeros and one species count. Then it calls <code>Update</code> in the parent class, which computes the
+    likelihoods and updates the sub-hypotheses.</p><p>So in the running example, we do three updates. The first is
+    something like “I have seen three lions.” The second is “I have seen two
+    tigers and no additional lions.” And the third is “I have seen one bear
+    and no more lions and tigers.”</p><p>Here’s the new version of <code>Likelihood</code>:</p><pre data-type="programlisting"># class Species4
+
+    def Likelihood(self, data, hypo):
+        dirichlet = hypo
+        like = 0
+        for i in range(self.iterations):
+            like += dirichlet.Likelihood(data)
+
+        # correct for the number of unseen species the new one
+        # could have been
+        m = len(data)
+        num_unseen = dirichlet.n - m + 1
+        like *= num_unseen
+
+        return like</pre><p>This is almost the same as <code>Species.Likelihood</code>. The difference is the
+    factor, <code>num_unseen</code>. This
+    correction is necessary because each time we see a species for the first
+    time, we have to consider that there were some number of other unseen
+    species that we might have seen. For larger values of <code>n</code> there are more unseen species that we could
+    have seen, which increases the likelihood of the data.</p><p>This is a subtle point and I have to admit that I did not get it
+    right the first time. But again I was able to validate this version by
+    comparing it to the previous versions.<a data-type="indexterm" data-primary="regression testing" id="idp3468480"/></p></section><section data-type="sect1" id="a0000006825" data-pdf-bookmark="We’re not done yet"><h1>We’re not done yet</h1><p>Performing the updates one species at a time solves one problem, but
+    it creates another. Each update takes time proportional to <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>k</mml:mi>
+
+            <mml:mi>m</mml:mi>
+          </mml:mrow>
+        </math>, where <em>k</em> is the
+    number of hypotheses and <em>m</em> is the number
+    of observed species. So if we do <em>m</em>
+    updates, the total run time is proportional to <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>k</mml:mi>
+
+            <mml:msup>
+              <mml:mi>m</mml:mi>
+
+              <mml:mn>2</mml:mn>
+            </mml:msup>
+          </mml:mrow>
+        </math>.</p><p>But we can speed things up using the same trick we used in <a data-type="xref" href="#collapsing">“Collapsing the hierarchy”</a>: we’ll get rid of the Dirichlet objects and
+    collapse the two levels of the hierarchy into a single object. So here’s
+    yet another version of <code>Species</code>:</p><pre data-type="programlisting">class Species5(Species2):
+    
+    def Update(self, data):
+        m = len(data)
+        for i in range(m):
+            self.UpdateOne(i+1, data[i])
+            self.params[i] += data[i]</pre><p>This version inherits <code>__init__</code> from <code>Species2</code>, so it uses <code>ns</code> and <code>probs</code>
+    to represent the distribution of <code>n</code>, and
+    <code>params</code> to represent the parameters of
+    the Dirichlet distribution.</p><p><code>Update</code> is similar to what we saw
+    in the previous section. It loops through the observed species and calls
+    <code>UpdateOne</code>:</p><pre data-type="programlisting"># class Species5
+
+    def UpdateOne(self, i, count):
+        likes = numpy.zeros(len(self.ns), dtype=numpy.double)
+        for i in range(self.iterations):
+            likes += self.SampleLikelihood(i, count)
+
+        unseen_species = [n-i+1 for n in self.ns]
+        likes *= unseen_species
+
+        self.probs *= likes
+        self.probs /= self.probs.sum()</pre><p>This function is similar to <code>Species2.Update</code>, with two changes:</p><ul><li><p>The interface is different. Instead of the whole dataset, we get
+        <code>i</code>, the index of the observed
+        species, and <code>count</code>, how many of
+        that species we’ve seen.</p></li><li><p>We have to apply a correction factor for the number of unseen
+        species, as in <code>Species4.Likelihood</code>.
+        The difference here is that we update all of the likelihoods at once
+        with array multiplication.</p></li></ul><p>Finally, here’s <code>SampleLikelihood</code>:<a data-type="indexterm" data-primary="numpy" data-startref="numpy-ch15" id="idp3490096"/></p><pre data-type="programlisting"># class Species5
+
+    def SampleLikelihood(self, i, count):
+        gammas = numpy.random.gamma(self.params)
+
+        sums = numpy.cumsum(gammas)[self.ns[0]-1:]
+
+        ps = gammas[i-1] / sums
+        log_likes = numpy.log(ps) * count
+
+        log_likes -= numpy.max(log_likes)
+        likes = numpy.exp(log_likes)
+
+        return likes</pre><p>This is similar to <code>Species2.SampleLikelihood</code>; the difference is
+    that each update only includes a single species, so we don’t need a
+    loop.</p><p>The runtime of this function is proportional to the number of
+    hypotheses, <em>k</em>. It runs <em>m</em> times, so the run time of the update is
+    proportional to <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>k</mml:mi>
+
+            <mml:mi>m</mml:mi>
+          </mml:mrow>
+        </math>. And the number of iterations we need to get an
+    accurate result is usually small.</p></section><section data-type="sect1" id="belly" data-pdf-bookmark="The belly button data"><h1>The belly button data</h1><p>That’s enough about lions and tigers and bears. Let’s get back to
+    belly buttons. To get a sense of what the data look like, consider subject
+    B1242, whose sample of 400 reads yielded 61 species with the following
+    counts:</p><pre data-type="programlisting">92, 53, 47, 38, 15, 14, 12, 10, 8, 7, 7, 5, 5, 
+4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2,
+1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1</pre><p>There are a few dominant species that make up a large fraction of
+    the whole, but many species that yielded only a single read. The number of
+    these “singletons” suggests that there are likely to be at least a few
+    unseen species.<a data-type="indexterm" data-primary="species" id="idp3496128"/></p><p>In the example with lions and tigers, we assume that each animal in
+    the preserve is equally likely to be observed. Similarly, for the belly
+    button data, we assume that each bacterium is equally likely to yield a
+    read.</p><p>In reality, each step in the data-collection process might introduce
+    biases. Some species might be more likely to be picked up by a swab, or to
+    yield identifiable amplicons. So when we talk about the prevalence of each
+    species, we should remember this source of error.<a data-type="indexterm" data-primary="sample bias" id="idp3501840"/></p><p>I should also acknowledge that I am using the term “species”
+    loosely. First, bacterial species are not well defined. Second, some reads
+    identify a particular species, others only identify a genus. To be more
+    precise, I should say “operational taxonomic unit”, or OTU.<a data-type="indexterm" data-primary="operational taxonomic unit" id="idp3502896"/><a data-type="indexterm" data-primary="OTU" id="idp3505408"/></p><p>Now let’s process some of the belly button data. I define a class
+    called <code>Subject</code> to represent information
+    about each subject in the study:</p><pre data-type="programlisting">class Subject(object):
+
+    def __init__(self, code):
+        self.code = code
+        self.species = []</pre><p>Each subject has a string code, like “B1242”, and a list of (count,
+    species name) pairs, sorted in increasing order by count. <code>Subject</code> provides several methods to make it easy
+    to access these counts and species names. You can see the details in
+    <a href="http://thinkbayes.com/species.py" class="orm:hideurl">http://thinkbayes.com/species.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p><p><code>Subject</code> provides a method named
+    <code>Process</code> that creates and updates a
+    <code>Species5</code> suite, which represents the
+    distributions of <code>n</code> and the
+    prevalences.<a data-type="indexterm" data-primary="prevalence" id="idp3508640"/></p><p>And <code>Suite2</code> provides <code>DistOfN</code>, which returns the posterior
+    distribution of <code>n</code>.</p><pre data-type="programlisting"># class Suite2
+
+    def DistN(self):
+        items = zip(self.ns, self.probs)
+        pmf = thinkbayes.MakePmfFromItems(items)
+        return pmf</pre><p><a data-type="xref" href="#species-ndist">Figure 15-3</a> shows the distribution of <code>n</code> for subject B1242. The probability that there
+    are exactly 61 species, and no unseen species, is nearly zero. The most
+    likely value is 72, with 90% credible interval 66 to 79. At the high end,
+    it is unlikely that there are as many as 87 species.</p><figure id="species-ndist" style="float: none"><img src="images/thba_1503.png"/><figcaption>Distribution of n for subject B1242.</figcaption></figure><p>Next we compute the posterior distribution of prevalence for each
+    species. <code>Species2</code> provides <code>DistOfPrevalence</code>:</p><pre data-type="programlisting"># class Species2
+
+    def DistOfPrevalence(self, index):
+        metapmf = thinkbayes.Pmf()
+
+        for n, prob in zip(self.ns, self.probs):
+            beta = self.MarginalBeta(n, index)
+            pmf = beta.MakePmf()
+            metapmf.Set(pmf, prob)
+
+        mix = thinkbayes.MakeMixture(metapmf)
+        return metapmf, mix</pre><p><code>index</code> indicates which species we
+    want. For each <code>n</code>, we have a different
+    posterior distribution of prevalence.</p><p>The loop iterates through the possible values of <code>n</code> and their probabilities. For each value of
+    <code>n</code> it gets a Beta object representing
+    the marginal distribution for the indicated species. Remember that Beta
+    objects contain the parameters <code>alpha</code>
+    and <code>beta</code>; they don’t have values and
+    probabilities like a Pmf, but they provide <code>MakePmf</code>, which generates a discrete
+    approximation to the continuous beta distribution.<a data-type="indexterm" data-primary="Beta object" id="idp3522832"/></p><p><code>metapmf</code> is a meta-Pmf that
+    contains the distributions of prevalence, conditioned on <code>n</code>. <code>MakeMixture</code> combines the meta-Pmf into <code>mix</code>, which combines the conditional
+    distributions into a single distribution of prevalence.<a data-type="indexterm" data-primary="meta-Pmf" id="idp3525984"/><a data-type="indexterm" data-primary="mixture" id="idp3526368"/><a data-type="indexterm" data-primary="MakeMixture" id="idp3526752"/></p><p><a data-type="xref" href="#species-prev">Figure 15-4</a> shows results for the five species
+    with the most reads. The most prevalent species accounts for 23% of the
+    400 reads, but since there are almost certainly unseen species, the most
+    likely estimate for its prevalence is 20%, with 90% credible interval
+    between 17% and 23%.</p><figure id="species-prev" style="float: none"><img src="images/thba_1504.png"/><figcaption>Distribution of prevalences for subject B1242.</figcaption></figure></section><section data-type="sect1" id="a0000006996" data-pdf-bookmark="Predictive distributions"><h1>Predictive distributions</h1><p>I introduced the hidden species problem in the form of four related
+    questions. We have answered the first two by computing the posterior
+    distribution for <code>n</code> and the prevalence
+    of each species.<a data-type="indexterm" data-primary="predictive distribution" id="idp3532736"/></p><p>The other two questions are:</p><ul><li><p>If we are planning to collect additional reads, can we predict
+        how many new species we are likely to discover?</p></li><li><p>How many additional reads are needed to increase the fraction of
+        observed species to a given threshold?</p></li></ul><p>To answer predictive questions like this we can use the posterior
+    distributions to simulate possible future events and compute predictive
+    distributions for the number of species, and fraction of the total, we are
+    likely to see.</p><p>The kernel of these simulations looks like this:<a data-type="indexterm" data-primary="simulation" id="idp3533392"/></p><ol><li><p>Choose <code>n</code> from its posterior
+        distribution.</p></li><li><p>Choose a prevalence for each species, including possible unseen
+        species, using the Dirichlet distribution.<a data-type="indexterm" data-primary="Dirichlet distribution" id="idp3531568"/></p></li><li><p>Generate a random sequence of future observations.</p></li><li><p>Compute the number of new species, <code>num_new</code>, as a function of the number of
+        additional reads, <code>k</code>.</p></li><li><p>Repeat the previous steps and accumulate the joint distribution
+        of <code>num_new</code> and
+        <code>k</code>.<a data-type="indexterm" data-primary="joint distribution" id="idp3539664"/></p></li></ol><p>And here’s the code. <code>RunSimulation</code> runs a single simulation:</p><pre data-type="programlisting"># class Subject
+
+    def RunSimulation(self, num_reads):
+        m, seen = self.GetSeenSpecies()
+        n, observations = self.GenerateObservations(num_reads)
+
+        curve = []
+        for k, obs in enumerate(observations):
+            seen.add(obs)
+
+            num_new = len(seen) - m
+            curve.append((k+1, num_new))
+
+        return curve</pre><div class="hard-pagebreak"/><p><code>num_reads</code> is the
+    number of additional reads to simulate. <code>m</code> is the number of seen species, and <code>seen</code> is a set of strings with a unique name for
+    each species. <code>n</code> is a random value from
+    the posterior distribution, and <code>observations</code> is a random sequence of species
+    names.</p><p>Each time through the loop, we add the new observation to <code>seen</code> and record the number of reads and the
+    number of new species so far.</p><p>The result of <code>RunSimulation</code> is a
+    <strong>rarefaction curve</strong>, represented as a list
+    of pairs with the number of reads and the number of new species.<a data-type="indexterm" data-primary="rarefaction curve" id="idp3549072"/></p><p>Before we see the results, let’s look at <code>GetSeenSpecies</code> and <code>GenerateObservations</code>.</p><pre data-type="programlisting">#class Subject
+
+    def GetSeenSpecies(self):
+        names = self.GetNames()
+        m = len(names)
+        seen = set(SpeciesGenerator(names, m))
+        return m, seen</pre><p><code>GetNames</code> returns the list of
+    species names that appear in the data files, but for many subjects these
+    names are not unique. So I use <code>SpeciesGenerator</code> to extend each name with a
+    serial number:<a data-type="indexterm" data-primary="generator" id="idp3551424"/></p><pre data-type="programlisting">def SpeciesGenerator(names, num):
+    i = 0
+    for name in names:
+        yield '%s-%d' % (name, i)
+        i += 1
+
+    while i &lt; num:
+        yield 'unseen-%d' % i
+        i += 1</pre><p>Given a name like <code>Corynebacterium</code>, <code>SpeciesGenerator</code> yields <code>Corynebacterium-1</code>. When the list of names is
+    exhausted, it yields names like <code>unseen-62</code>.</p><p>Here is <code>GenerateObservations</code>:</p><pre data-type="programlisting"># class Subject
+
+    def GenerateObservations(self, num_reads):
+        n, prevalences = self.suite.SamplePosterior()
+
+        names = self.GetNames()
+        name_iter = SpeciesGenerator(names, n)
+
+        d = dict(zip(name_iter, prevalences))
+        cdf = thinkbayes.MakeCdfFromDict(d)
+        observations = cdf.Sample(num_reads)
+
+        return n, observations</pre><p>Again, <code>num_reads</code> is
+    the number of additional reads to generate. <code>n</code> and <code>prevalences</code> are samples from the posterior
+    distribution.</p><p><code>cdf</code> is a Cdf object that maps
+    species names, including the unseen, to cumulative probabilities. Using a
+    Cdf makes it efficient to generate a random sequence of species
+    names.<a data-type="indexterm" data-primary="Cdf" id="idp3556976"/><a data-type="indexterm" data-primary="cumulative probability" id="idp3558896"/></p><p>Finally, here is <code>Species2.SamplePosterior</code>:</p><pre data-type="programlisting">    def SamplePosterior(self):
+        pmf = self.DistOfN()
+        n = pmf.Random()
+        prevalences = self.SamplePrevalences(n)
+        return n, prevalences</pre><p>And <code>SamplePrevalences</code>, which
+    generates a sample of prevalences conditioned on <code>n</code>:<a data-type="indexterm" data-primary="random sample" id="idp3562000"/></p><pre data-type="programlisting"># class Species2
+
+    def SamplePrevalences(self, n):
+        params = self.params[:n]
+        gammas = numpy.random.gamma(params)
+        gammas /= gammas.sum()
+        return gammas</pre><p>We saw this algorithm for generating random values from a Dirichlet
+    distribution in <a data-type="xref" href="#randomdir">“Random sampling”</a>.</p><p><a data-type="xref" href="#species-rare">Figure 15-5</a> shows 100 simulated rarefaction
+    curves for subject B1242. The curves are “jittered;” that is, I shifted
+    each curve by a random offset so they would not all overlap. By inspection
+    we can estimate that after 400 more reads we are likely to find 2–6 new
+    species.</p><figure id="species-rare" style="float: none"><img src="images/thba_1505.png"/><figcaption>Simulated rarefaction curves for subject B1242.</figcaption></figure></section><section data-type="sect1" id="a0000007124" data-pdf-bookmark="Joint posterior"><h1>Joint posterior</h1><p>We can use these simulations to estimate the joint distribution of
+    <code>num_new</code> and <code>k</code>, and from that we can get the distribution of
+    <code>num_new</code> conditioned on any
+    value of <code>k</code>.<a data-type="indexterm" data-primary="joint distribution" id="idp3567632"/></p><pre data-type="programlisting">def MakeJointPredictive(curves):
+    joint = thinkbayes.Joint()
+    for curve in curves:
+        for k, num_new in curve:
+            joint.Incr((k, num_new))
+    joint.Normalize()
+    return joint</pre><p><code>MakeJointPredictive</code> makes a Joint
+    object, which is a Pmf whose values are tuples.<a data-type="indexterm" data-primary="Joint object" id="idp3573744"/></p><p><code>curves</code> is a list of rarefaction
+    curves created by <code>RunSimulation</code>. Each
+    curve contains a list of pairs of <code>k</code> and
+    <code>num_new</code>.<a data-type="indexterm" data-primary="rarefaction curve" id="idp3573216"/></p><p>The resulting joint distribution is a map from each pair to its
+    probability of occurring. Given the joint distribution, we can use
+    <code>Joint.Conditional</code> get the distribution
+    of <code>num_new</code> conditioned on
+    <code>k</code> (see <a data-type="xref" href="ch09.html#conditional">“Conditional distributions”</a>).<a data-type="indexterm" data-primary="conditional distribution" id="idp3578368"/></p><p><code>Subject.MakeConditionals</code> takes a
+    list of <code>ks</code> and computes the conditional
+    distribution of <code>num_new</code>
+    for each <code>k</code>. The result is a list of Cdf
+    objects.</p><pre data-type="programlisting">def MakeConditionals(curves, ks):
+    joint = MakeJointPredictive(curves)
+
+    cdfs = []
+    for k in ks:
+        pmf = joint.Conditional(1, 0, k)
+        pmf.name = 'k=%d' % k
+        cdf = pmf.MakeCdf()
+        cdfs.append(cdf)
+
+    return cdfs</pre><p><a data-type="xref" href="#species-cond">Figure 15-6</a> shows the results. After 100 reads,
+    the median predicted number of new species is 2; the 90% credible interval
+    is 0 to 5. After 800 reads, we expect to see 3 to 12 new species.</p><figure id="species-cond" style="float: none"><img src="images/thba_1506.png"/><figcaption>Distributions of the number of new species conditioned on the
+      number of additional reads.</figcaption></figure></section><section data-type="sect1" id="a0000007177" data-pdf-bookmark="Coverage"><h1>Coverage</h1><p>The last question we want to answer is, “How many additional reads
+    are needed to increase the fraction of observed species to a given
+    threshold?”</p><p>To answer this question, we need a version of <code>RunSimulation</code> that computes the fraction of
+    observed species rather than the number of new species.</p><pre data-type="programlisting"># class Subject
+
+    def RunSimulation(self, num_reads):
+        m, seen = self.GetSeenSpecies()
+        n, observations = self.GenerateObservations(num_reads)
+
+        curve = []
+        for k, obs in enumerate(observations):
+            seen.add(obs)
+
+            frac_seen = len(seen) / float(n)
+            curve.append((k+1, frac_seen))
+
+        return curve</pre><p>Next we loop through each curve and make a dictionary, <code>d</code>, that maps from the number of additional
+    reads, <code>k</code>, to a list of <code>fracs</code>; that is, a list of values for the
+    coverage achieved after <code>k</code> reads.</p><pre data-type="programlisting">    def MakeFracCdfs(self, curves):
+        d = {}
+        for curve in curves:
+            for k, frac in curve:
+                d.setdefault(k, []).append(frac)
+
+        cdfs = {}
+        for k, fracs in d.iteritems():
+            cdf = thinkbayes.MakeCdfFromList(fracs)
+            cdfs[k] = cdf
+
+        return cdfs</pre><p>Then for each value of <code>k</code> we make
+    a Cdf of <code>fracs</code>; this Cdf represents the
+    distribution of coverage after <code>k</code>
+    reads.</p><p>Remember that the CDF tells you the probability of falling below a
+    given threshold, so the <em>complementary</em> CDF tells you
+    the probability of exceeding it. <a data-type="xref" href="#species-frac">Figure 15-7</a> shows
+    complementary CDFs for a range of values of <code>k</code>.<a data-type="indexterm" data-primary="complementary CDF" id="idp3592784"/></p><figure id="species-frac" style="float: True"><img src="images/thba_1507.png"/><figcaption>Complementary CDF of coverage for a range of additional
+      reads.</figcaption></figure><p>To read this figure, select the level of coverage you want to
+    achieve along the <em>x</em>-axis. As an example,
+    choose 90%.<a data-type="indexterm" data-primary="coverage" id="idp3598624"/></p><p>Now you can read up the chart to find the probability of achieving
+    90% coverage after <code>k</code> reads. For
+    example, with 200 reads, you have about a 40% chance of getting 90%
+    coverage. With 1000 reads, you have a 90% chance of getting 90%
+    coverage.</p><p>With that, we have answered the four questions that make up the
+    unseen species problem. To validate the algorithms in this chapter with
+    real data, I had to deal with a few more details. But this chapter is
+    already too long, so I won’t discuss them here.</p><p>You can read about the problems, and how I addressed them, at <a href="http://allendowney.blogspot.com/2013/05/belly-button-biodiversity-end-game.html" class="orm:hideurl">http://allendowney.blogspot.com/2013/05/belly-button-biodiversity-end-game.html</a>.</p><p>You can download the code in this chapter from <a href="http://thinkbayes.com/species.py" class="orm:hideurl">http://thinkbayes.com/species.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000007237" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>The Unseen Species problem is an area of active research, and I
+    believe the algorithm in this chapter is a novel contribution. So in fewer
+    than 200 pages we have made it from the basics of probability to the
+    research frontier. I’m very happy about that.</p><p>My goal for this book is to present three related ideas:</p><ul><li><p><strong>Bayesian thinking</strong><strong>:</strong> The foundation of Bayesian analysis is the
+        idea of using probability distributions to represent uncertain
+        beliefs, using data to update those distributions, and using the
+        results to make predictions and inform decisions.</p></li><li><p><strong>A computational approach:</strong> The
+        premise of this book is that it is easier to understand Bayesian
+        analysis using computation rather than math, and easier to implement
+        Bayesian methods with reusable building blocks that can be rearranged
+        to solve real-world problems quickly.</p></li><li><p><strong>Iterative modeling:</strong> Most
+        real-world problems involve modeling decisions and trade-offs between
+        realism and complexity. It is often impossible to know ahead of time
+        what factors should be included in the model and which can be
+        abstracted away. The best approach is to iterate, starting with simple
+        models and adding complexity gradually, using each model to validate
+        the others.</p></li></ul><p>These ideas are versatile and powerful; they are applicable to
+    problems in every area of science and engineering, from simple examples to
+    topics of current research.</p><p>If you made it this far, you should be prepared to apply these tools
+    to new problems relevant to your work. I hope you find them useful; let me
+    know how it goes!</p></section></section>
+  </body>
+</html>

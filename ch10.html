@@ -1,0 +1,728 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="a0000004249" data-pdf-bookmark="Chapter 10. Approximate Bayesian Computation"><h1>Approximate Bayesian Computation</h1><section data-type="sect1" id="a0000004251" data-pdf-bookmark="The Variability Hypothesis"><h1>The Variability Hypothesis</h1><p>I have a soft spot for crank science. Recently I visited Norumbega
+    Tower, which is an enduring monument to the crackpot theories of Eben
+    Norton Horsford, inventor of double-acting baking powder and fake history.
+    But that’s not what this chapter is about.<a data-type="indexterm" data-primary="crank science" id="idp2400288"/><a data-type="indexterm" data-primary="Horsford, Eben Norton" id="idp2398336"/></p><p>This chapter is about the Variability Hypothesis, which<a data-type="indexterm" data-primary="Variability Hypothesis" id="idp2401408"/><a data-type="indexterm" data-primary="Meckel, Johann" id="idp2402016"/></p><blockquote><p>“originated in the early nineteenth century with Johann Meckel,
+      who argued that males have a greater range of ability than females,
+      especially in intelligence. In other words, he believed that most
+      geniuses and most mentally retarded people are men. Because he
+      considered males to be the ’superior animal,’ Meckel concluded that
+      females’ lack of variation was a sign of inferiority.”</p><p>From <a href="http://en.wikipedia.org/wiki/Variability_hypothesis" class="orm:hideurl">http://en.wikipedia.org/wiki/Variability_hypothesis</a>.</p></blockquote><p>I particularly like that last part, because I suspect that if it
+    turns out that women are actually more variable, Meckel would take that as
+    a sign of inferiority, too. Anyway, you will not be surprised to hear that
+    the evidence for the Variability Hypothesis is weak.<a data-type="indexterm" data-primary="evidence" id="idp2404384"/></p><p>Nevertheless, it came up in my class recently when we looked at data
+    from the CDC’s Behavioral Risk Factor Surveillance System (BRFSS),
+    specifically the self-reported heights of adult American men and women.
+    The dataset includes responses from 154407 men and 254722 women. Here’s
+    what we found:<a data-type="indexterm" data-primary="Centers for Disease Control" id="idp2409296"/><a data-type="indexterm" data-primary="CDC" id="idp2409792"/><a data-type="indexterm" data-primary="BRFSS" id="idp2410832"/><a data-type="indexterm" data-primary="Behavioral Risk Factor Surveillance System" id="idp2407168"/></p><ul><li><p>The average height for men is 178 cm; the average height for
+        women is 163 cm. So men are taller, on average. No surprise
+        there.</p></li><li><p>For men the standard deviation is 7.7 cm; for women it is 7.3
+        cm. So in absolute terms, men’s heights are more variable.</p></li><li><p>But to compare variability between groups, it is more meaningful
+        to use the coefficient of variation (CV), which is the standard
+        deviation divided by the mean. It is a dimensionless measure of
+        variability relative to scale. For men CV is 0.0433; for women it is
+        0.0444.<a data-type="indexterm" data-primary="coefficient of variation" id="idp2404624"/></p></li></ul><p>That’s very close, so we could conclude that this dataset provides
+    weak evidence against the Variability Hypothesis. But we can use Bayesian
+    methods to make that conclusion more precise. And answering this question
+    gives me a chance to demonstrate some techniques for working with large
+    datasets.<a data-type="indexterm" data-primary="height" id="idp2416160"/></p><p>I will proceed in a few steps:</p><ol><li><p>We’ll start with the simplest implementation, but it only works
+        for datasets smaller than 1000 values.</p></li><li><p>By computing probabilities under a log transform, we can scale
+        up to the full size of the dataset, but the computation gets
+        slow.</p></li><li><p>Finally, we speed things up substantially with Approximate
+        Bayesian Computation, also known as ABC.</p></li></ol><p>You can download the code in this chapter from <a href="http://thinkbayes.com/variability.py" class="orm:hideurl">http://thinkbayes.com/variability.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000004290" data-pdf-bookmark="Mean and standard deviation"><h1>Mean and standard deviation</h1><p>In <a data-type="xref" href="ch09.html#paintball">Chapter 9</a> we estimated two parameters
+    simultaneously using a joint distribution. In this chapter we use the same
+    method to estimate the parameters of a Gaussian distribution: the mean,
+    <code>mu</code>, and the standard deviation,
+    <code>sigma</code>.<a data-type="indexterm" data-primary="Gaussian distribution" id="idp2419552"/></p><p>For this problem, I define a Suite called <code>Height</code> that represents a map from each <code>mu, sigma</code> pair to its probability:</p><pre data-type="programlisting">class Height(thinkbayes.Suite, thinkbayes.Joint):
+
+    def __init__(self, mus, sigmas):
+        thinkbayes.Suite.__init__(self)
+
+        pairs = [(mu, sigma) 
+                 for mu in mus
+                 for sigma in sigmas]
+
+        thinkbayes.Suite.__init__(self, pairs)</pre><p><code>mus</code> is a sequence of possible
+    values for <code>mu</code>; <code>sigmas</code> is a sequence of values for <code>sigma</code>. The prior distribution is uniform over
+    all <code>mu, sigma</code> pairs.<a data-type="indexterm" data-primary="Joint" id="idp2424576"/><a data-type="indexterm" data-primary="joint distribution" id="idp2425184"/></p><p>The likelihood function is easy. Given hypothetical values of
+    <code>mu</code> and <code>sigma</code>, we compute the likelihood of a particular
+    value, <code>x</code>. That’s what <code>EvalGaussianPdf</code> does, so all we have to do is
+    use it:<a data-type="indexterm" data-primary="likelihood" id="idp2429552"/></p><pre data-type="programlisting"># class Height
+
+    def Likelihood(self, data, hypo):
+        x = data
+        mu, sigma = hypo
+        like = thinkbayes.EvalGaussianPdf(x, mu, sigma)
+        return like</pre><p>If you have studied statistics from a mathematical perspective, you
+    know that when you evaluate a PDF, you get a probability density. In order
+    to get a probability, you have to integrate probability densities over
+    some range.<a data-type="indexterm" data-primary="density" id="idp2427056"/></p><p>But for our purposes, we don’t need a probability; we just need
+    something proportional to the probability we want. A probability density
+    does that job nicely.</p><p>The hardest part of this problem turns out to be choosing
+    appropriate ranges for <code>mus</code> and <code>sigmas</code>. If the range is too small, we omit some
+    possibilities with non-negligible probability and get the wrong answer. If
+    the range is too big, we get the right answer, but waste computational
+    power.</p><p>So this is an opportunity to use classical estimation to make
+    Bayesian techniques more efficient. Specifically, we can use classical
+    estimators to find a likely location for <code>mu</code> and <code>sigma</code>,
+    and use the standard errors of those estimates to choose a likely
+    spread.<a data-type="indexterm" data-primary="classical estimation" id="idp2433488"/></p><p>If the true parameters of the distribution are <em>μ</em> and <em>σ</em>, and we
+    take a sample of <em>n</em> values, an estimator
+    of <em>μ</em> is the sample mean, <code>m</code>.</p><p>And an estimator of <em>σ</em> is the sample
+    standard variance, <code>s</code>.</p><p>The standard error of the estimated <em>μ</em> is <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>s</mml:mi>
+
+            <mml:mo>/</mml:mo>
+
+            <mml:msqrt>
+              <mml:mi>n</mml:mi>
+            </mml:msqrt>
+          </mml:mrow>
+        </math> and the standard error of the estimated <em>σ</em> is <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>s</mml:mi>
+
+            <mml:mo>/</mml:mo>
+
+            <mml:msqrt>
+              <mml:mrow>
+                <mml:mn>2</mml:mn>
+
+                <mml:mo>(</mml:mo>
+
+                <mml:mi>n</mml:mi>
+
+                <mml:mo>-</mml:mo>
+
+                <mml:mn>1</mml:mn>
+
+                <mml:mo>)</mml:mo>
+              </mml:mrow>
+            </mml:msqrt>
+          </mml:mrow>
+        </math>.</p><p>Here’s the code to compute all that:</p><pre data-type="programlisting">def FindPriorRanges(xs, num_points, num_stderrs=3.0):
+
+    # compute m and s
+    n = len(xs)
+    m = numpy.mean(xs)
+    s = numpy.std(xs)
+
+    # compute ranges for m and s
+    stderr_m = s / math.sqrt(n)
+    mus = MakeRange(m, stderr_m)
+
+    stderr_s = s / math.sqrt(2 * (n-1))
+    sigmas = MakeRange(s, stderr_s)
+
+    return mus, sigmas</pre><p><code>xs</code> is the dataset. <code>num_points</code> is the desired number of
+    values in the range. <code>num_stderrs</code> is the width of the range on each side
+    of the estimate, in number of standard errors.</p><p>The return value is a pair of sequences, <code>mus</code> and <code>sigmas</code>.</p><p>Here’s <code>MakeRange</code>:<a data-type="indexterm" data-primary="numpy" id="idp2451504"/></p><pre data-type="programlisting">    def MakeRange(estimate, stderr):
+        spread = stderr * num_stderrs
+        array = numpy.linspace(estimate-spread,
+                               estimate+spread,
+                               num_points)
+        return array</pre><p><code>numpy.linspace</code> makes an array of
+    equally spaced elements between <code>estimate-spread</code> and <code>estimate+spread</code>, including both.<a data-type="indexterm" data-primary="linspace" id="idp2455776"/></p></section><section data-type="sect1" id="a0000004391" data-pdf-bookmark="Update"><h1>Update</h1><p>Finally here’s the code to make and update the suite:</p><pre data-type="programlisting">    mus, sigmas = FindPriorRanges(xs, num_points)
+    suite = Height(mus, sigmas)
+    suite.UpdateSet(xs)
+    print suite.MaximumLikelihood()</pre><p>This process might seem bogus, because we use the data to choose the
+    range of the prior distribution, and then use the data again to do the
+    update. In general, using the same data twice is, in fact,
+    bogus.<a data-type="indexterm" data-primary="bogus" id="idp2457664"/><a data-type="indexterm" data-primary="maximum likelihood" id="idp2459504"/></p><p>But in this case it is ok. Really. We use the data to choose the
+    range for the prior, but only to avoid computing a lot of probabilities
+    that would have been very small anyway. With <code>num_stderrs=4</code>, the range is big enough to cover all
+    values with non-negligible likelihood. After that, making it bigger has no
+    effect on the results.</p><p>In effect, the prior is uniform over all values of <code>mu</code> and <code>sigma</code>,
+    but for computational efficiency we ignore all the values that don’t
+    matter.</p></section><section data-type="sect1" id="a0000004404" data-pdf-bookmark="The posterior distribution of CV"><h1>The posterior distribution of CV</h1><p>Once we have the posterior joint distribution of <code>mu</code> and <code>sigma</code>,
+    we can compute the distribution of CV for men and women, and then the
+    probability that one exceeds the other.</p><p><div class="hard-pagebreak"/>To compute the distribution of CV, we enumerate
+    pairs of <code>mu</code> and <code>sigma</code>:</p><pre data-type="programlisting">def CoefVariation(suite):
+    pmf = thinkbayes.Pmf()
+    for (mu, sigma), p in suite.Items():
+        pmf.Incr(sigma/mu, p)
+    return pmf</pre><p>Then we use <code>thinkbayes.PmfProbGreater</code> to compute the
+    probability that men are more variable.</p><p>The analysis itself is simple, but there are two more issues we have
+    to deal with:</p><ol><li><p>As the size of the dataset increases, we run into a series of
+        computational problems due to the limitations of floating-point
+        arithmetic.</p></li><li><p>The dataset contains a number of extreme values that are almost
+        certainly errors. We will need to make the estimation process robust
+        in the presence of these outliers.</p></li></ol><p>The following sections explain these problems and their
+    solutions.</p></section><section data-type="sect1" id="underflow" data-pdf-bookmark="Underflow"><h1>Underflow</h1><p>If we select the first 100 values from the BRFSS dataset and run the
+    analysis I just described, it runs without errors and we get posterior
+    distributions that look reasonable.</p><p>If we select the first 1000 values and run the program again, we get
+    an error in <code>Pmf.Normalize</code>:</p><pre data-type="programlisting">ValueError: total probability is zero.</pre><p>The problem is that we are using probability densities to compute
+    likelihoods, and densities from continuous distributions tend to be small.
+    And if you take 1000 small values and multiply them together, the result
+    is very small. In this case it is so small it can’t be represented by a
+    floating-point number, so it gets rounded down to zero, which is called
+    <strong>underflow</strong>. And if all probabilities in
+    the distribution are 0, it’s not a distribution any more.<a data-type="indexterm" data-primary="underflow" id="idp2479600"/></p><p>A possible solution is to renormalize the Pmf after each update, or
+    after each batch of 100. That would work, but it would be slow.</p><p>A better alternative is to compute likelihoods under a log
+    transform. That way, instead of multiplying small values, we can add up
+    log likelihoods. <code>Pmf</code> provides methods
+    <code>Log</code>, <code>LogUpdateSet</code> and <code>Exp</code> to make this process easy.<a data-type="indexterm" data-primary="logarithm" id="idp2475488"/><a data-type="indexterm" data-primary="log transform" id="idp2476320"/></p><div class="hard-pagebreak"/><p><code>Log</code> computes the log of the
+    probabilities in a Pmf:</p><pre data-type="programlisting"># class Pmf
+
+    def Log(self):
+        m = self.MaxLike()
+        for x, p in self.d.iteritems():
+            if p:
+                self.Set(x, math.log(p/m))
+            else:
+                self.Remove(x)</pre><p>Before applying the log transform <code>Log</code> uses <code>MaxLike</code> to find <code>m</code>, the highest probability in the Pmf. It divide
+    all probabilities by <code>m</code>, so the highest
+    probability gets normalized to 1, which yields a log of 0. The other log
+    probabilities are all negative. If there are any values in the Pmf with
+    probability 0, they are removed.</p><p>While the Pmf is under a log transform, we can’t use <code>Update</code>, <code>UpdateSet</code>, or <code>Normalize</code>. The result would be nonsensical; if
+    you try, Pmf raises an exception. Instead, we have to use <code>LogUpdate</code> and <code>LogUpdateSet</code>.<a data-type="indexterm" data-primary="exception" id="idp2486096"/></p><p>Here’s the implementation of <code>LogUpdateSet</code>:</p><pre data-type="programlisting"># class Suite
+
+    def LogUpdateSet(self, dataset):
+        for data in dataset:
+            self.LogUpdate(data)</pre><p><code>LogUpdateSet</code> loops through the
+    data and calls <code>LogUpdate</code>:</p><pre data-type="programlisting"># class Suite
+
+    def LogUpdate(self, data):
+        for hypo in self.Values():
+            like = self.LogLikelihood(data, hypo)
+            self.Incr(hypo, like)</pre><p><code>LogUpdate</code> is just like <code>Update</code> except that it calls <code>LogLikelihood</code> instead of <code>Likelihood</code>, and <code>Incr</code> instead of <code>Mult</code>.</p><p>Using log-likelihoods avoids the problem with underflow, but while
+    the Pmf is under the log transform, there’s not much we can do with it. We
+    have to use <code>Exp</code> to invert the
+    transform:</p><pre data-type="programlisting"># class Pmf
+
+    def Exp(self):
+        m = self.MaxLike()
+        for x, p in self.d.iteritems():
+            self.Set(x, math.exp(p-m))</pre><p>If the log-likelihoods are large negative numbers, the resulting
+    likelihoods might underflow. So <code>Exp</code>
+    finds the maximum log-likelihood, <code>m</code>,
+    and shifts all the likelihoods up by <code>m</code>.
+    The resulting distribution has a maximum likelihood of 1. This process
+    inverts the log transform with minimal loss of precision.<a data-type="indexterm" data-primary="maximum likelihood" id="idp2494192"/></p></section><section data-type="sect1" id="a0000004513" data-pdf-bookmark="Log-likelihood"><h1>Log-likelihood</h1><p>Now all we need is <code>LogLikelihood</code>.</p><pre data-type="programlisting"># class Height
+
+    def LogLikelihood(self, data, hypo):
+        x = data
+        mu, sigma = hypo
+        loglike = scipy.stats.norm.logpdf(x, mu, sigma)
+        return loglike</pre><p><code>norm.logpdf</code> computes the
+    log-likelihood of the Gaussian PDF.<a data-type="indexterm" data-primary="scipy" id="idp2500224"/><a data-type="indexterm" data-primary="log-likelihood" id="idp2500832"/></p><p>Here’s what the whole update process looks like:</p><pre data-type="programlisting">    suite.Log()
+    suite.LogUpdateSet(xs)
+    suite.Exp()
+    suite.Normalize()</pre><p>To review, <code>Log</code> puts the suite
+    under a log transform. <code>LogUpdateSet</code>
+    calls <code>LogUpdate</code>, which calls <code>LogLikelihood</code>. <code>LogUpdate</code> uses <code>Pmf.Incr</code>, because adding a log-likelihood is the
+    same as multiplying by a likelihood.</p><p>After the update, the log-likelihoods are large negative numbers, so
+    <code>Exp</code> shifts them up before inverting the
+    transform, which is how we avoid underflow.</p><p>Once the suite is transformed back, the probabilities are “linear”
+    again, which means “not logarithmic”, so we can use <code>Normalize</code> again.</p><p>Using this algorithm, we can process the entire dataset without
+    underflow, but it is still slow. On my computer it might take an hour. We
+    can do better.</p></section><section data-type="sect1" id="a0000004546" data-pdf-bookmark="A little optimization"><h1>A little optimization</h1><p>This section uses math and computational optimization to speed
+    things up by a factor of 100. But the following section presents an
+    algorithm that is even faster. So if you want to get right to the good
+    stuff, feel free to skip this section.<a data-type="indexterm" data-primary="optimization" id="idp2508496"/></p><p><code>Suite.LogUpdateSet</code> calls <code>LogUpdate</code> once for each data point. We can speed
+    it up by computing the log-likelihood of the entire dataset at
+    once.</p><p>We’ll start with the Gaussian PDF:</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mfrac>
+              <mml:mn>1</mml:mn>
+
+              <mml:mrow>
+                <mml:mi>σ</mml:mi>
+
+                <mml:msqrt>
+                  <mml:mrow>
+                    <mml:mn>2</mml:mn>
+
+                    <mml:mi>π</mml:mi>
+                  </mml:mrow>
+                </mml:msqrt>
+              </mml:mrow>
+            </mml:mfrac>
+
+            <mml:mo form="prefix">exp</mml:mo>
+
+            <mml:mfenced close="]" open="[" separators="">
+              <mml:mo>-</mml:mo>
+
+              <mml:mfrac>
+                <mml:mn>1</mml:mn>
+
+                <mml:mn>2</mml:mn>
+              </mml:mfrac>
+
+              <mml:msup>
+                <mml:mfenced close=")" open="(" separators="">
+                  <mml:mfrac>
+                    <mml:mrow>
+                      <mml:mi>x</mml:mi>
+
+                      <mml:mo>-</mml:mo>
+
+                      <mml:mi>μ</mml:mi>
+                    </mml:mrow>
+
+                    <mml:mi>σ</mml:mi>
+                  </mml:mfrac>
+                </mml:mfenced>
+
+                <mml:mn>2</mml:mn>
+              </mml:msup>
+            </mml:mfenced>
+          </mml:mrow>
+        </math></div><p>and compute the log (dropping the constant term):</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mo>-</mml:mo>
+
+            <mml:mo form="prefix">log</mml:mo>
+
+            <mml:mi>σ</mml:mi>
+
+            <mml:mo>-</mml:mo>
+
+            <mml:mfrac>
+              <mml:mn>1</mml:mn>
+
+              <mml:mn>2</mml:mn>
+            </mml:mfrac>
+
+            <mml:msup>
+              <mml:mfenced close=")" open="(" separators="">
+                <mml:mfrac>
+                  <mml:mrow>
+                    <mml:mi>x</mml:mi>
+
+                    <mml:mo>-</mml:mo>
+
+                    <mml:mi>μ</mml:mi>
+                  </mml:mrow>
+
+                  <mml:mi>σ</mml:mi>
+                </mml:mfrac>
+              </mml:mfenced>
+
+              <mml:mn>2</mml:mn>
+            </mml:msup>
+          </mml:mrow>
+        </math></div><p>Given a sequence of values, <em>x<sub>i</sub></em>, the total log-likelihood
+    is</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:munder>
+              <mml:mo>∑</mml:mo>
+
+              <mml:mi>i</mml:mi>
+            </mml:munder>
+
+            <mml:mo>-</mml:mo>
+
+            <mml:mo form="prefix">log</mml:mo>
+
+            <mml:mi>σ</mml:mi>
+
+            <mml:mo>-</mml:mo>
+
+            <mml:mfrac>
+              <mml:mn>1</mml:mn>
+
+              <mml:mn>2</mml:mn>
+            </mml:mfrac>
+
+            <mml:msup>
+              <mml:mfenced close=")" open="(" separators="">
+                <mml:mfrac>
+                  <mml:mrow>
+                    <mml:msub>
+                      <mml:mi>x</mml:mi>
+
+                      <mml:mi>i</mml:mi>
+                    </mml:msub>
+
+                    <mml:mo>-</mml:mo>
+
+                    <mml:mi>μ</mml:mi>
+                  </mml:mrow>
+
+                  <mml:mi>σ</mml:mi>
+                </mml:mfrac>
+              </mml:mfenced>
+
+              <mml:mn>2</mml:mn>
+            </mml:msup>
+          </mml:mrow>
+        </math></div><p>Pulling out the terms that don’t depend on <em>i</em>, we get</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mo>-</mml:mo>
+
+            <mml:mi>n</mml:mi>
+
+            <mml:mo form="prefix">log</mml:mo>
+
+            <mml:mi>σ</mml:mi>
+
+            <mml:mo>-</mml:mo>
+
+            <mml:mfrac>
+              <mml:mn>1</mml:mn>
+
+              <mml:mrow>
+                <mml:mn>2</mml:mn>
+
+                <mml:msup>
+                  <mml:mi>σ</mml:mi>
+
+                  <mml:mn>2</mml:mn>
+                </mml:msup>
+              </mml:mrow>
+            </mml:mfrac>
+
+            <mml:munder>
+              <mml:mo>∑</mml:mo>
+
+              <mml:mi>i</mml:mi>
+            </mml:munder>
+
+            <mml:msup>
+              <mml:mrow>
+                <mml:mo>(</mml:mo>
+
+                <mml:msub>
+                  <mml:mi>x</mml:mi>
+
+                  <mml:mi>i</mml:mi>
+                </mml:msub>
+
+                <mml:mo>-</mml:mo>
+
+                <mml:mi>μ</mml:mi>
+
+                <mml:mo>)</mml:mo>
+              </mml:mrow>
+
+              <mml:mn>2</mml:mn>
+            </mml:msup>
+          </mml:mrow>
+        </math></div><p>which we can translate into Python:</p><pre data-type="programlisting"># class Height
+
+    def LogUpdateSetFast(self, data):
+        xs = tuple(data)
+        n = len(xs)
+
+        for hypo in self.Values():
+            mu, sigma = hypo
+            total = Summation(xs, mu)
+            loglike = -n * math.log(sigma) - total / 2 / sigma**2
+            self.Incr(hypo, loglike)</pre><p>By itself, this would be a small improvement, but it creates an
+    opportunity for a bigger one. Notice that the summation only depends on
+    <code>mu</code>, not <code>sigma</code>, so we only have to compute it once for
+    each value of <code>mu</code>.<a data-type="indexterm" data-primary="optimization" id="idp2564512"/></p><p>To avoid recomputing, I factor out a function that computes the
+    summation, and <strong>memoize</strong> it so it stores
+    previously computed results in a dictionary (see <a href="http://en.wikipedia.org/wiki/Memoization" class="orm:hideurl">http://en.wikipedia.org/wiki/Memoization</a>):<a data-type="indexterm" data-primary="memoization" id="idp2565088"/></p><pre data-type="programlisting">def Summation(xs, mu, cache={}):
+    try:
+        return cache[xs, mu]
+    except KeyError:
+        ds = [(x-mu)**2 for x in xs]
+        total = sum(ds)
+        cache[xs, mu] = total
+        return total</pre><p><code>cache</code> stores previously computed
+    sums. The <code>try</code> statement returns a
+    result from the cache if possible; otherwise it computes the summation,
+    then caches and returns the result.<a data-type="indexterm" data-primary="cache" id="idp2568288"/></p><p>The only catch is that we can’t use a list as a key in the cache,
+    because it is not a hashable type. That’s why <code>LogUpdateSetFast</code> converts the dataset to a
+    tuple.</p><p>This optimization speeds up the computation by about a factor of
+    100, processing the entire dataset (154407 men and
+    254722 women) in less than a minute on my not-very-fast
+    computer.</p></section><section data-type="sect1" id="a0000004642" data-pdf-bookmark="ABC"><h1>ABC</h1><p>But maybe you don’t have that kind of time. In that case,
+    Approximate Bayesian Computation (ABC) might be the way to go. The
+    motivation behind ABC is that the likelihood of any particular dataset
+    is:<a data-type="indexterm" data-primary="ABC" id="idp2570864"/><a data-type="indexterm" data-primary="Approximate Bayesian Computation" id="idp2572224"/></p><ol><li><p>Very small, especially for large datasets, which is why we had
+        to use the log transform,</p></li><li><p>Expensive to compute, which is why we had to do so much
+        optimization, and</p></li><li><p>Not really what we want anyway.</p></li></ol><p>We don’t really care about the likelihood of seeing the exact
+    dataset we saw. Especially for continuous variables, we care about the
+    likelihood of seeing any dataset like the one we saw.</p><p>For example, in the Euro problem, we don’t care about the order of
+    the coin flips, only the total number of heads and tails. And in the
+    locomotive problem, we don’t care about which particular trains were seen,
+    only the number of trains and the maximum of the serial numbers.<a data-type="indexterm" data-primary="locomotive problem" id="idp2579200"/><a data-type="indexterm" data-primary="Euro problem" id="idp2574688"/></p><p>Similarly, in the BRFSS sample, we don’t really want to know the
+    probability of seeing one particular set of values (especially since there
+    are hundreds of thousands of them). It is more relevant to ask, “If we
+    sample 100,000 people from a population with hypothetical values of
+    <em>μ</em> and <em>σ</em>,
+    what would be the chance of collecting a sample with the observed mean and
+    variance?”<a data-type="indexterm" data-primary="BRFSS" id="idp2580304"/></p><p>For samples from a Gaussian distribution, we can answer this
+    question efficiently because we can find the distribution of the sample
+    statistics analytically. In fact, we already did it when we computed the
+    range of the prior.<a data-type="indexterm" data-primary="Gaussian distribution" id="idp2581920"/></p><p>If you draw <em>n</em> values from a
+    Gaussian distribution with parameters <em>μ</em>
+    and <em>σ</em>, and compute the sample mean,
+    <em>m</em>, the distribution of <em>m</em> is Gaussian with parameters <em>μ</em> and <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>σ</mml:mi>
+
+            <mml:mo>/</mml:mo>
+
+            <mml:msqrt>
+              <mml:mi>n</mml:mi>
+            </mml:msqrt>
+          </mml:mrow>
+        </math>.</p><p>Similarly, the distribution of the sample standard deviation,
+    <em>s</em>, is Gaussian with parameters <em>σ</em> and <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>σ</mml:mi>
+
+            <mml:mo>/</mml:mo>
+
+            <mml:msqrt>
+              <mml:mrow>
+                <mml:mn>2</mml:mn>
+
+                <mml:mo>(</mml:mo>
+
+                <mml:mi>n</mml:mi>
+
+                <mml:mo>-</mml:mo>
+
+                <mml:mn>1</mml:mn>
+
+                <mml:mo>)</mml:mo>
+              </mml:mrow>
+            </mml:msqrt>
+          </mml:mrow>
+        </math>.</p><p><a data-type="indexterm" data-primary="sample statistics" id="idp2594736"/>We can use these sample distributions to compute the
+    likelihood of the sample statistics, <em>m</em>
+    and <em>s</em>, given hypothetical values for
+    <em>μ</em> and <em>σ</em>.
+    Here’s a new version of <code>LogUpdateSet</code> that does it:</p><pre data-type="programlisting">    def LogUpdateSetABC(self, data):
+        xs = data
+        n = len(xs)
+
+        # compute sample statistics
+        m = numpy.mean(xs)
+        s = numpy.std(xs)
+
+        for hypo in sorted(self.Values()):
+            mu, sigma = hypo
+
+            # compute log likelihood of m, given hypo
+            stderr_m = sigma / math.sqrt(n)
+            loglike = EvalGaussianLogPdf(m, mu, stderr_m)
+
+            #compute log likelihood of s, given hypo
+            stderr_s = sigma / math.sqrt(2 * (n-1))
+            loglike += EvalGaussianLogPdf(s, sigma, stderr_s)
+
+            self.Incr(hypo, loglike)</pre><p>On my computer this function processes the entire dataset in about a
+    second, and the result agrees with the exact result with about 5 digits of
+    precision.</p></section><section data-type="sect1" id="a0000004697" data-pdf-bookmark="Robust estimation"><h1>Robust estimation</h1><p>We are almost ready to look at results, but we have one more problem
+    to deal with. There are a number of outliers in this dataset that are
+    almost certainly errors. For example, there are three adults with reported
+    height of 61 cm, which would place them among the shortest living adults
+    in the world. At the other end, there are four women with reported height
+    229 cm, just short of the tallest women in the world.</p><p>It is not impossible that these values are correct, but it is
+    unlikely, which makes it hard to know how to deal with them. And we have
+    to get it right, because these extreme values have a disproportionate
+    effect on the estimated variability.</p><p>Because ABC is based on summary statistics, rather than the entire
+    dataset, we can make it more robust by choosing summary statistics that
+    are robust in the presence of outliers. For example, rather than use the
+    sample mean and standard deviation, we could use the median and
+    inter-quartile range (IQR), which is the difference between the 25th and
+    75th percentiles.<a data-type="indexterm" data-primary="summary statistic" id="idp2608672"/><a data-type="indexterm" data-primary="robust estimation" id="idp2606192"/><a data-type="indexterm" data-primary="inter-quartile range" id="idp2606976"/><a data-type="indexterm" data-primary="IQR" id="idp2607584"/></p><p>More generally, we could compute an inter-percentile range (IPR)
+    that spans any given fraction of the distribution, <code>p</code>:</p><pre data-type="programlisting">def MedianIPR(xs, p):
+    cdf = thinkbayes.MakeCdfFromList(xs)
+    median = cdf.Percentile(50)
+
+    alpha = (1-p) / 2
+    ipr = cdf.Value(1-alpha) - cdf.Value(alpha)
+    return median, ipr</pre><p><code>xs</code> is a sequence of values.
+    <code>p</code> is the desired range; for example,
+    <code>p=0.5</code> yields the inter-quartile
+    range.</p><p><code>MedianIPR</code> works by computing the
+    CDF of <code>xs</code>, then extracting the median
+    and the difference between two percentiles.</p><p>We can convert from <code>ipr</code> to an
+    estimate of <code>sigma</code> using the Gaussian
+    CDF to compute the fraction of the distribution covered by a given number
+    of standard deviations. For example, it is a well-known rule of thumb that
+    68% of a Gaussian distribution falls within one standard deviation of the
+    mean, which leaves 16% in each tail. If we compute the range between the
+    16th and 84th percentiles, we expect the result to be <code>2 * sigma</code>. So we can estimate <code>sigma</code> by computing the 68% IPR and dividing by
+    2.<a data-type="indexterm" data-primary="Gaussian distribution" id="idp2611840"/></p><p>More generally we could use any number of <code>sigmas</code>. <code>MedianS</code> performs the more general version of
+    this computation:</p><pre data-type="programlisting">def MedianS(xs, num_sigmas):
+    half_p = thinkbayes.StandardGaussianCdf(num_sigmas) - 0.5
+
+    median, ipr = MedianIPR(xs, half_p * 2)
+    s = ipr / 2 / num_sigmas
+
+    return median, s</pre><p>Again, <code>xs</code> is the sequence of
+    values; <code>num_sigmas</code> is the
+    number of standard deviations the results should be based on. The result
+    is <code>median</code>, which estimates <em>μ</em>, and <code>s</code>, which
+    estimates <em>σ</em>.</p><p>Finally, in <code>LogUpdateSetABC</code> we
+    can replace the sample mean and standard deviation with <code>median</code> and <code>s</code>.
+    And that pretty much does it.</p><p>It might seem odd that we are using observed percentiles to estimate
+    <em>μ</em> and <em>σ</em>,
+    but it is an example of the flexibility of the Bayesian approach. In
+    effect we are asking, “Given hypothetical values for <em>μ</em> and <em>σ</em>, and a
+    sampling process that has some chance of introducing errors, what is the
+    likelihood of generating a given set of sample statistics?”</p><p>We are free to choose any sample statistics we like, up to a point:
+    <em>μ</em> and <em>σ</em>
+    determine the location and spread of a distribution, so we need to choose
+    statistics that capture those characteristics. For example, if we chose
+    the 49th and 51st percentiles, we would get very little information about
+    spread, so it would leave the estimate of <em>σ</em> relatively unconstrained by the data. All values
+    of <code>sigma</code> would have nearly the same
+    likelihood of producing the observed values, so the posterior distribution
+    of <code>sigma</code> would look a lot like the
+    prior.</p></section><section data-type="sect1" id="a0000004795" data-pdf-bookmark="Who is more variable?"><h1>Who is more variable?</h1><p>Finally we are ready to answer the question we started with: is the
+    coefficient of variation greater for men than for women?</p><p>Using ABC based on the median and IPR with <code>num_sigmas=1</code>, I computed posterior joint
+    distributions for <code>mu</code> and <code>sigma</code>. Figures <a data-type="xref" href="#fig.variability1">Figure 10-1</a> and <a data-type="xref" href="#fig.variability2">Figure 10-2</a> show the results as a contour plot with
+    <code>mu</code> on the x-axis, <code>sigma</code> on the y-axis, and probability on the
+    z-axis.</p><figure id="fig.variability1" style="float: none"><img src="images/thba_1001.png"/><figcaption>Contour plot of the posterior joint distribution of mean and
+      standard deviation of height for men in the U.S.</figcaption></figure><figure id="fig.variability2" style="float: True"><img src="images/thba_1002.png"/><figcaption>Contour plot of the posterior joint distribution of mean and
+      standard deviation of height for women in the U.S.</figcaption></figure><p>For each joint distribution, I computed the posterior distribution
+    of CV. <a data-type="xref" href="#fig.variability3">Figure 10-3</a> shows these distributions for
+    men and women. The mean for men is 0.0410; for women it is 0.0429. Since
+    there is no overlap between the distributions, we conclude with near
+    certainty that women are more variable in height than men.</p><figure id="fig.variability3" style="float: True"><img src="images/thba_1003.png"/><figcaption>Posterior distributions of CV for men and women, based on robust
+      <span class="keep-together">estimators</span>.</figcaption></figure><p>So is that the end of the Variability Hypothesis? Sadly, no. It
+    turns out that this result depends on the choice of the inter-percentile
+    range. With <code>num_sigmas=1</code>,
+    we conclude that women are more variable, but with <code>num_sigmas=2</code> we conclude with equal
+    confidence that men are more variable.</p><p>The reason for the difference is that there are more men of short
+    stature, and their distance from the mean is greater.</p><p>So our evaluation of the Variability Hypothesis depends on the
+    interpretation of “variability.” With <code>num_sigmas=1</code> we focus on people near the mean. As
+    we increase <code>num_sigmas</code>, we
+    give more weight to the extremes.</p><p>To decide which emphasis is appropriate, we would need a more
+    precise statement of the hypothesis. As it is, the Variability Hypothesis
+    may be too vague to evaluate.</p><p>Nevertheless, it helped me demonstrate several new ideas and, I hope
+    you agree, it makes an interesting example.</p></section><section data-type="sect1" id="a0000004833" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>There are two ways you might think of ABC. One interpretation is
+    that it is, as the name suggests, an approximation that is faster to
+    compute than the exact value.</p><p>But remember that Bayesian analysis is always based on modeling
+    decisions, which implies that there is no “exact” solution. For any
+    interesting physical system there are many possible models, and each model
+    yields different results. To interpret the results, we have to evaluate
+    the models.<a data-type="indexterm" data-primary="modeling" id="idp2643280"/></p><p>So another interpretation of ABC is that it represents an
+    alternative model of the likelihood. When we compute <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi mathvariant="normal">p</mml:mi>
+
+            <mml:mo>(</mml:mo>
+
+            <mml:mi>D</mml:mi>
+
+            <mml:mo>|</mml:mo>
+
+            <mml:mi>H</mml:mi>
+
+            <mml:mo>)</mml:mo>
+          </mml:mrow>
+        </math>, we are asking “What is the likelihood of the data
+    under a given hypothesis?”<a data-type="indexterm" data-primary="likelihood" id="idp2649584"/></p><p>For large datasets, the likelihood of the data is very small, which
+    is a hint that we might not be asking the right question. What we really
+    want to know is the likelihood of any outcome like the data, where the
+    definition of “like” is yet another modeling decision.</p><p>The underlying idea of ABC is that two datasets are alike if they
+    yield the same summary statistics. But in some cases, like the example in
+    this chapter, it is not obvious which summary statistics to
+    choose.<a data-type="indexterm" data-primary="summary statistic" id="idp2649296"/></p><p>You can download the code in this chapter from <a href="http://thinkbayes.com/variability.py" class="orm:hideurl">http://thinkbayes.com/variability.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000004846" data-pdf-bookmark="Exercises"><h1>Exercises</h1><div id="a0000004849" class="exercise" data-type="example"><h5/><p>An “effect size” is a statistic intended to measure the
+        difference between two groups (see <a href="http://en.wikipedia.org/wiki/Effect_size" class="orm:hideurl">http://en.wikipedia.org/wiki/Effect_size</a>).</p><p>For example, we could use data from the BRFSS to estimate the
+        difference in height between men and women. By sampling values from
+        the posterior distributions of <em>μ</em> and
+        <em>σ</em>, we could generate the posterior
+        distribution of this difference.</p><p>But it might be better to use a dimensionless measure of effect
+        size, rather than a difference measured in cm. One option is to use
+        divide through by the standard deviation (similar to what we did with
+        the coefficient of variation).</p><p>If the parameters for Group 1 are <math xmlns="http://www.w3.org/1998/Math/MathML">
+              <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+                <mml:mo>(</mml:mo>
+
+                <mml:msub>
+                  <mml:mi>μ</mml:mi>
+
+                  <mml:mn>1</mml:mn>
+                </mml:msub>
+
+                <mml:mo>,</mml:mo>
+
+                <mml:msub>
+                  <mml:mi>σ</mml:mi>
+
+                  <mml:mn>1</mml:mn>
+                </mml:msub>
+
+                <mml:mo>)</mml:mo>
+              </mml:mrow>
+            </math>, and the parameters for Group 1 are
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+              <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+                <mml:mo>(</mml:mo>
+
+                <mml:msub>
+                  <mml:mi>μ</mml:mi>
+
+                  <mml:mn>2</mml:mn>
+                </mml:msub>
+
+                <mml:mo>,</mml:mo>
+
+                <mml:msub>
+                  <mml:mi>σ</mml:mi>
+
+                  <mml:mn>2</mml:mn>
+                </mml:msub>
+
+                <mml:mo>)</mml:mo>
+              </mml:mrow>
+            </math>, the dimensionless effect size is</p><div data-type="equation"><math xmlns="http://www.w3.org/1998/Math/MathML">
+              <mml:mfrac xmlns:mml="http://www.w3.org/1998/Math/MathML">
+                <mml:mrow>
+                  <mml:msub>
+                    <mml:mi>μ</mml:mi>
+
+                    <mml:mn>1</mml:mn>
+                  </mml:msub>
+
+                  <mml:mo>-</mml:mo>
+
+                  <mml:msub>
+                    <mml:mi>μ</mml:mi>
+
+                    <mml:mn>2</mml:mn>
+                  </mml:msub>
+                </mml:mrow>
+
+                <mml:mrow>
+                  <mml:mo>(</mml:mo>
+
+                  <mml:msub>
+                    <mml:mi>σ</mml:mi>
+
+                    <mml:mn>1</mml:mn>
+                  </mml:msub>
+
+                  <mml:mo>+</mml:mo>
+
+                  <mml:msub>
+                    <mml:mi>σ</mml:mi>
+
+                    <mml:mn>2</mml:mn>
+                  </mml:msub>
+
+                  <mml:mo>)</mml:mo>
+
+                  <mml:mo>/</mml:mo>
+
+                  <mml:mn>2</mml:mn>
+                </mml:mrow>
+              </mml:mfrac>
+            </math></div><p>Write a function that takes joint distributions of <code>mu</code> and <code>sigma</code> for two groups and returns the
+        posterior distribution of effect size.</p><p>Hint: if enumerating all pairs from the two distributions takes
+        too long, consider random sampling.</p></div></section></section>
+  </body>
+</html>

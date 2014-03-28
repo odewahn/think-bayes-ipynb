@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="hierarchical" data-pdf-bookmark="Chapter 14. A Hierarchical Model"><h1>A Hierarchical Model</h1><section data-type="sect1" id="a0000006078" data-pdf-bookmark="The Geiger counter problem"><h1>The Geiger counter problem</h1><p>I got the idea for the following problem from Tom Campbell-Ricketts,
+    author of the Maximum Entropy blog at <a href="http://maximum-entropy-blog.blogspot.com" class="orm:hideurl">http://maximum-entropy-blog.blogspot.com</a>.
+    And he got the idea from E.T. Jaynes, author of the classic
+    <em>Probability Theory: The Logic of Science</em>:<a data-type="indexterm" data-primary="Jaynes, E.T." id="idp3176256"/><a data-type="indexterm" data-primary="Campbell-Ricketts, Tom" id="idp3177216"/><a data-type="indexterm" data-primary="Geiger counter problem" id="idp3177712"/></p><blockquote><p>Suppose that a radioactive source emits particles toward a Geiger
+      counter at an average rate of <em>r</em>
+      particles per second, but the counter only registers a fraction,
+      <em>f</em>, of the particles that hit it. If
+      <em>f</em> is 10% and the counter registers 15
+      particles in a one second interval, what is the posterior distribution
+      of <em>n</em>, the actual number of particles
+      that hit the counter, and <em>r</em>, the
+      average rate particles are emitted?</p></blockquote><p>To get started on a problem like this, think about the chain of
+    causation that starts with the parameters of the system and ends with the
+    observed data:<a data-type="indexterm" data-primary="causation" id="idp3181104"/></p><ol><li><p>The source emits particles at an average rate, <em>r</em>.</p></li><li><p>During any given second, the source emits <em>n</em> particles toward the counter.</p></li><li><p>Out of those <em>n</em> particles, some
+        number, <em>k</em>, get counted.</p></li></ol><p>The probability that an atom decays is the same at any point in
+    time, so radioactive decay is well modeled by a Poisson process. Given
+    <em>r</em>, the distribution of <em>n</em> is Poisson distribution with parameter <em>r</em>.<a data-type="indexterm" data-primary="radioactive decay" id="idp3187504"/><a data-type="indexterm" data-primary="Poisson process" id="idp3188352"/></p><p>And if we assume that the probability of detection for each particle
+    is independent of the others, the distribution of <em>k</em> is the binomial distribution with parameters
+    <em>n</em> and <em>f</em>.<a data-type="indexterm" data-primary="binomial distribution" id="idp3190832"/></p><p>Given the parameters of the system, we can find the distribution of
+    the data. So we can solve what is called the <strong>forward
+    problem</strong>.<a data-type="indexterm" data-primary="forward problem" id="idp3192320"/></p><p>Now we want to go the other way: given the data, we want the
+    distribution of the parameters. This is called the <strong>inverse problem</strong>. And if you can solve the forward
+    problem, you can use Bayesian methods to solve the inverse
+    problem.<a data-type="indexterm" data-primary="inverse problem" id="idp3193312"/></p></section><section data-type="sect1" id="a0000006125" data-pdf-bookmark="Start simple"><h1>Start simple</h1><p>Let’s start with a simple version of the problem where we know the
+    value of <em>r</em>. We are given the value of
+    <em>f</em>, so all we have to do is estimate
+    <em>n</em>.</p><p>I define a Suite called <code>Detector</code>
+    that models the behavior of the detector and estimates <em>n</em>.</p><pre data-type="programlisting">class Detector(thinkbayes.Suite):
+
+    def __init__(self, r, f, high=500, step=1):
+        pmf = thinkbayes.MakePoissonPmf(r, high, step=step)
+        thinkbayes.Suite.__init__(self, pmf, name=r)
+        self.r = r
+        self.f = f</pre><p>If the average emission rate is <em>r</em>
+    particles per second, the distribution of <em>n</em> is Poisson with parameter <em>r</em>. <code>high</code> and
+    <code>step</code> determine the upper bound for
+    <em>n</em> and the step size between hypothetical
+    values.<a data-type="indexterm" data-primary="Poisson distribution" id="idp3203824"/></p><p>Now we need a likelihood function:<a data-type="indexterm" data-primary="likelihood" id="idp3203008"/></p><pre data-type="programlisting"># class Detector
+
+    def Likelihood(self, data, hypo):
+        k = data
+        n = hypo
+        p = self.f
+
+        return thinkbayes.EvalBinomialPmf(k, n, p)</pre><p><code>data</code> is the number of particles
+    detected, and <code>hypo</code> is the hypothetical
+    number of particles emitted, <em>n</em>.</p><p>If there are actually <em>n</em> particles,
+    and the probability of detecting any one of them is <em>f</em>, the probability of detecting <em>k</em> particles is given by the binomial
+    distribution.<a data-type="indexterm" data-primary="binomial distribution" id="idp3209152"/></p><p>That’s it for the Detector. We can try it out for a range of values
+    of <em>r</em>:</p><pre data-type="programlisting">    f = 0.1
+    k = 15
+
+    for r in [100, 250, 400]:
+        suite = Detector(r, f, step=1)
+        suite.Update(k)
+        print suite.MaximumLikelihood()</pre><p><a data-type="xref" href="#fig.jaynes1">Figure 14-1</a> shows the posterior distribution of
+    <em>n</em> for several given values of <em>r</em>.</p><figure id="fig.jaynes1" style="float: True"><img src="images/thba_1401.png"/><figcaption>Posterior distribution of n for three values of r.</figcaption></figure></section><section data-type="sect1" id="a0000006179" data-pdf-bookmark="Make it hierarchical"><h1>Make it hierarchical</h1><p>In the previous section, we assume <em>r</em> is known. Now let’s relax that assumption. I
+    define another Suite, called <code>Emitter</code>,
+    that models the behavior of the emitter and estimates <em>r</em>:</p><pre data-type="programlisting">class Emitter(thinkbayes.Suite):
+
+    def __init__(self, rs, f=0.1):
+        detectors = [Detector(r, f) for r in rs]
+        thinkbayes.Suite.__init__(self, detectors)</pre><p><code>rs</code> is a sequence of hypothetical
+    value for <em>r</em>. <code>detectors</code> is a sequence of Detector objects, one
+    for each value of <em>r</em>. The values in the
+    Suite are Detectors, so Emitter is a <strong>meta-Suite</strong>; that is, a Suite that contains other
+    Suites as values.<a data-type="indexterm" data-primary="meta-Suite" id="idp3221120"/></p><p>To update the Emitter, we have to compute the likelihood of the data
+    under each hypothetical value of <em>r</em>. But
+    each value of <em>r</em> is represented by a
+    Detector that contains a range of values for <em>n</em>.</p><p>To compute the likelihood of the data for a given Detector, we loop
+    through the values of <em>n</em> and add up the
+    total probability of <em>k</em>. That’s what
+    <code>SuiteLikelihood</code> does:</p><pre data-type="programlisting"># class Detector
+
+    def SuiteLikelihood(self, data):
+        total = 0
+        for hypo, prob in self.Items():
+            like = self.Likelihood(data, hypo)
+            total += prob * like
+        return total</pre><p>Now we can write the Likelihood function for the Emitter:</p><pre data-type="programlisting"># class Detector
+
+    def Likelihood(self, data, hypo):
+        detector = hypo
+        like = detector.SuiteLikelihood(data)
+        return like</pre><p>Each <code>hypo</code> is a Detector, so we
+    can invoke <code>SuiteLikelihood</code> to get the
+    likelihood of the data under the hypothesis.</p><p>After we update the Emitter, we have to update each of the
+    Detectors, too.</p><pre data-type="programlisting"># class Detector
+
+    def Update(self, data):
+        thinkbayes.Suite.Update(self, data)
+        
+        for detector in self.Values():
+            detector.Update()</pre><p>A model like this, with multiple levels of Suites, is called
+    <strong>hierarchical</strong>.<a data-type="indexterm" data-primary="hierarchical model" id="idp3227504"/></p></section><section data-type="sect1" id="a0000006222" data-pdf-bookmark="A little optimization"><h1>A little optimization</h1><p>You might recognize <code>SuiteLikelihood</code>; we saw it in <a data-type="xref" href="ch11.html#suitelike">“Making a fair comparison”</a>. At the time, I pointed out that we didn’t really
+    need it, because the total probability computed by <code>SuiteLikelihood</code> is exactly the normalizing
+    constant computed and returned by <code>Update</code>.<a data-type="indexterm" data-primary="normalizing constant" id="idp3232080"/></p><p>So instead of updating the Emitter and then updating the Detectors,
+    we can do both steps at the same time, using the result from <code>Detector.Update</code> as the likelihood of
+    Emitter.</p><p>Here’s the streamlined version of <code>Emitter.Likelihood</code>:</p><pre data-type="programlisting"># class Emitter
+
+    def Likelihood(self, data, hypo):
+        return hypo.Update(data)</pre><p>And with this version of <code>Likelihood</code> we can use the default version of
+    <code>Update</code>. So this version has fewer lines
+    of code, and it runs faster because it does not compute the normalizing
+    constant twice.<a data-type="indexterm" data-primary="optimization" id="idp3237104"/></p></section><section data-type="sect1" id="a0000006246" data-pdf-bookmark="Extracting the posteriors"><h1>Extracting the posteriors</h1><p>After we update the Emitter, we can get the posterior distribution
+    of <em>r</em> by looping through the Detectors and
+    their probabilities:</p><pre data-type="programlisting"># class Emitter
+
+    def DistOfR(self):
+        items = [(detector.r, prob) for detector, prob in self.Items()]
+        return thinkbayes.MakePmfFromItems(items)</pre><p><code>items</code> is a list of values of
+    <em>r</em> and their probabilities. The result is
+    the Pmf of <em>r</em>.</p><p>To get the posterior distribution of <em>n</em>, we have to compute the mixture of the Detectors.
+    We can use <code>thinkbayes.MakeMixture</code>,
+    which takes a meta-Pmf that maps from each distribution to its
+    probability. And that’s exactly what the Emitter is:</p><pre data-type="programlisting"># class Emitter
+
+    def DistOfN(self):
+        return thinkbayes.MakeMixture(self)</pre><p><a data-type="xref" href="#fig.jaynes2">Figure 14-2</a> shows the results. Not surprisingly,
+    the most likely value for <em>n</em> is 150. Given
+    <em>f</em> and <em>n</em>,
+    the expected count is <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>k</mml:mi>
+
+            <mml:mo>=</mml:mo>
+
+            <mml:mi>f</mml:mi>
+
+            <mml:mi>n</mml:mi>
+          </mml:mrow>
+        </math>, so given <em>f</em> and
+    <em>k</em>, the expected value of <em>n</em> is <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mi>k</mml:mi>
+
+            <mml:mo>/</mml:mo>
+
+            <mml:mi>f</mml:mi>
+          </mml:mrow>
+        </math>, which is 150.</p><figure id="fig.jaynes2" style="float: True"><img src="images/thba_1402.png"/><figcaption>Posterior distributions of n and r.</figcaption></figure><p>And if 150 particles are emitted in one second, the most likely
+    value of <em>r</em> is 150 particles per second.
+    So the posterior distribution of <em>r</em> is
+    also centered on 150.</p><p>The posterior distributions of <em>r</em>
+    and <em>n</em> are similar; the only difference is
+    that we are slightly less certain about <em>n</em>. In general, we can be more certain about the
+    long-range emission rate, <em>r</em>, than about
+    the number of particles emitted in any particular second, <em>n</em>.</p><p>You can download the code in this chapter from <a href="http://thinkbayes.com/jaynes.py" class="orm:hideurl">http://thinkbayes.com/jaynes.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000006298" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>The Geiger counter problem demonstrates the connection between
+    causation and hierarchical modeling. In the example, the emission rate
+    <em>r</em> has a causal effect on the number of
+    particles, <em>n</em>, which has a causal effect
+    on the particle count, <em>k</em>.<a data-type="indexterm" data-primary="Geiger counter problem" id="idp3264592"/><a data-type="indexterm" data-primary="causation" id="idp3263200"/></p><p>The hierarchical model reflects the structure of the system, with
+    causes at the top and effects at the bottom.<a data-type="indexterm" data-primary="hierarchical model" id="idp3265504"/></p><ol><li><p>At the top level, we start with a range of hypothetical values
+        for <em>r</em>.</p></li><li><p>For each value of <em>r</em>, we have a
+        range of values for <em>n</em>, and the prior
+        distribution of <em>n</em> depends on
+        <em>r</em>.</p></li><li><p>When we update the model, we go bottom-up. We compute a
+        posterior distribution of <em>n</em> for each
+        value of <em>r</em>, then compute the
+        posterior distribution of <em>r</em>.</p></li></ol><p>So causal information flows down the hierarchy, and inference flows
+    up.</p></section><section data-type="sect1" id="a0000006325" data-pdf-bookmark="Exercises"><h1>Exercises</h1><div id="a0000006328" class="exercise" data-type="example"><h5/><p>This exercise is also inspired by an example in Jaynes,
+        <em>Probability Theory</em>.</p><p>Suppose you buy a mosquito trap that is supposed to reduce the
+        population of mosquitoes near your house. Each week, you empty the
+        trap and count the number of mosquitoes captured. After the first
+        week, you count 30 mosquitoes. After the second week, you count 20
+        mosquitoes. Estimate the percentage change in the number of mosquitoes
+        in your yard.</p><p>To answer this question, you have to make some modeling
+        decisions. Here are some suggestions:</p><ul><li><p>Suppose that each week a large number of mosquitoes,
+            <em>N</em>, is bred in a wetland near your
+            home.</p></li><li><p>During the week, some fraction of them, <em>f<sub>1</sub></em>, wander into your
+            yard, and of those some fraction, <em>f<sub>2</sub></em>, are caught in
+            the trap.</p></li><li><p>Your solution should take into account your prior belief
+            about how much <em>N</em> is likely to
+            change from one week to the next. You can do that by adding a
+            level to the hierarchy to model the percent change in <em>N</em>.</p></li></ul></div></section></section>
+  </body>
+</html>

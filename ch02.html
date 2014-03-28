@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <title>atlas book skeleton</title>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script>
+    <link rel="stylesheet" type="text/css" href="theme/html/html.css"/>
+  </head>
+  <body data-type="book">
+    <section data-type="chapter" class="pagenumrestart" id="compstat" data-pdf-bookmark="Chapter 2. Computational Statistics"><h1>Computational Statistics</h1><section data-type="sect1" id="a0000000952" data-pdf-bookmark="Distributions"><h1>Distributions</h1><p>In statistics a <strong>distribution</strong> is a
+    set of values and their corresponding probabilities.<a data-type="indexterm" data-primary="distribution" id="idp1007664"/></p><p>For example, if you roll a six-sided die, the set of possible values
+    is the numbers 1 to 6, and the probability associated with each value is
+    1/6.<a data-type="indexterm" data-primary="dice" id="idp1003696"/></p><p>As another example, you might be interested in how many times each
+    word appears in common English usage. You could build a distribution that
+    includes each word and how many times it appears.<a data-type="indexterm" data-primary="word frequency" id="idp1007152"/></p><p>To represent a distribution in Python, you could use a dictionary
+    that maps from each value to its probability. I have written a class
+    called <code>Pmf</code> that uses a Python
+    dictionary in exactly that way, and provides a number of useful methods. I
+    called the class Pmf in reference to a <strong>probability
+    mass function</strong>, which is a way to represent a distribution
+    mathematically.<a data-type="indexterm" data-primary="probability mass function" id="idp1010464"/><a data-type="indexterm" data-primary="Pmf class" id="idp1011072"/></p><p><code>Pmf</code> is defined in a Python module
+    I wrote to accompany this book, <code>thinkbayes.py</code>. You can download it from <a href="http://thinkbayes.com/thinkbayes.py" class="orm:hideurl">http://thinkbayes.com/thinkbayes.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p><p>To use <code>Pmf</code> you can import it like
+    this:</p><pre data-type="programlisting">from thinkbayes import Pmf</pre><p>The following code builds a Pmf to represent the distribution of
+    outcomes for a six-sided die:</p><pre data-type="programlisting">pmf = Pmf()
+for x in [1,2,3,4,5,6]:
+    pmf.Set(x, 1/6.0)</pre><p><code>Pmf</code> creates an empty
+    Pmf with no values. The <code>Set</code> method sets the probability associated with
+    each value to <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mn>1</mml:mn>
+
+            <mml:mo>/</mml:mo>
+
+            <mml:mn>6</mml:mn>
+          </mml:mrow>
+        </math>.</p><p>Here’s another example that counts the number of times each word
+    appears in a sequence:</p><pre data-type="programlisting">pmf = Pmf()
+for word in word_list:
+    pmf.Incr(word, 1)</pre><p><code>Incr</code> increases the
+    “probability” associated with each word by 1. If a word is not already in
+    the Pmf, it is added.</p><p>I put “probability” in quotes because in this example, the
+    probabilities are not normalized; that is, they do not add up to 1. So
+    they are not true probabilities.</p><p>But in this example the word counts are proportional to the
+    probabilities. So after we count all the words, we can compute
+    probabilities by dividing through by the total number of words. <code>Pmf</code> provides a method, <code>Normalize</code>, that does exactly that:<a data-type="indexterm" data-primary="Pmf methods" id="idp1025536"/></p><pre data-type="programlisting">pmf.Normalize()</pre><p>Once you have a Pmf object, you can ask for the probability
+    associated with any value:<a data-type="indexterm" data-primary="Prob" id="idp1028400"/></p><pre data-type="programlisting">print pmf.Prob('the')</pre><p>And that would print the frequency of the word “the” as a fraction
+    of the words in the list.</p><p>Pmf uses a Python dictionary to store the values and their
+    probabilities, so the values in the Pmf can be any hashable type. The
+    probabilities can be any numerical type, but they are usually
+    floating-point numbers (type <code>float</code>).</p></section><section data-type="sect1" id="a0000001002" data-pdf-bookmark="The cookie problem"><h1>The cookie problem</h1><p>In the context of Bayes’s theorem, it is natural to use a Pmf to map
+    from each hypothesis to its probability. In the cookie problem, the
+    hypotheses are <em>B<sub>1</sub></em>
+    and <em>B<sub>2</sub></em>. In Python,
+    I represent them with strings:<a data-type="indexterm" data-primary="cookie problem" id="idp1031184"/></p><pre data-type="programlisting">pmf = Pmf()
+pmf.Set('Bowl 1', 0.5)
+pmf.Set('Bowl 2', 0.5)</pre><p>This distribution, which contains the priors for each hypothesis, is
+    called (wait for it) the <strong>prior
+    distribution</strong>.<a data-type="indexterm" data-primary="prior distribution" id="idp1030528"/></p><p>To update the distribution based on new data (the vanilla cookie),
+    we multiply each prior by the corresponding likelihood. The likelihood of
+    drawing a vanilla cookie from Bowl 1 is 3/4. The likelihood for Bowl 2 is
+    1/2.<a data-type="indexterm" data-primary="Mult" id="idp1029296"/></p><pre data-type="programlisting">pmf.Mult('Bowl 1', 0.75)
+pmf.Mult('Bowl 2', 0.5)</pre><p><code>Mult</code> does what you
+    would expect. It gets the probability for the given hypothesis and
+    multiplies by the given likelihood.</p><p>After this update, the distribution is no longer normalized, but
+    because these hypotheses are mutually exclusive and collectively
+    exhaustive, we can <strong>renormalize</strong>:<a data-type="indexterm" data-primary="renormalize" id="idp1038384"/></p><pre data-type="programlisting">pmf.Normalize()</pre><p>The result is a distribution that contains the posterior probability
+    for each hypothesis, which is called (wait now) the <strong>posterior distribution</strong>.<a data-type="indexterm" data-primary="posterior distribution" id="idp1037712"/></p><p>Finally, we can get the posterior probability for Bowl 1:</p><pre data-type="programlisting">print pmf.Prob('Bowl 1')</pre><p>And the answer is 0.6. You can download this example from <a href="http://thinkbayes.com/cookie.py" class="orm:hideurl">http://thinkbayes.com/cookie.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.<a data-type="indexterm" data-primary="cookie.py" id="idp1044288"/></p></section><section data-type="sect1" id="framework" data-pdf-bookmark="The Bayesian framework"><h1>The Bayesian framework</h1><p><a data-type="indexterm" data-primary="Bayesian framework" id="idp1046272"/>Before we go on to other problems, I want to rewrite the
+    code from the previous section to make it more general. First I’ll define
+    a class to encapsulate the code related to this problem:</p><pre data-type="programlisting">class Cookie(Pmf):
+
+    def __init__(self, hypos):
+        Pmf.__init__(self)
+        for hypo in hypos:
+            self.Set(hypo, 1)
+        self.Normalize()</pre><p>A Cookie object is a Pmf that maps from hypotheses to their
+    probabilities. The <code>__init__</code> method gives each hypothesis the same
+    prior probability. As in the previous section, there are two
+    hypotheses:</p><pre data-type="programlisting">    hypos = ['Bowl 1', 'Bowl 2']
+    pmf = Cookie(hypos)</pre><p><code>Cookie</code> provides an
+    <code>Update</code> method that takes
+    data as a parameter and updates the probabilities:<a data-type="indexterm" data-primary="Update" id="idp1051488"/></p><pre data-type="programlisting">    def Update(self, data):
+        for hypo in self.Values():
+            like = self.Likelihood(data, hypo)
+            self.Mult(hypo, like)
+        self.Normalize()</pre><p><code>Update</code> loops through
+    each hypothesis in the suite and multiplies its probability by the
+    likelihood of the data under the hypothesis, which is computed by <code>Likelihood</code>:<a data-type="indexterm" data-primary="Likelihood" id="idp1050928"/></p><pre data-type="programlisting">    mixes = {
+        'Bowl 1':dict(vanilla=0.75, chocolate=0.25),
+        'Bowl 2':dict(vanilla=0.5, chocolate=0.5),
+        }
+
+    def Likelihood(self, data, hypo):
+        mix = self.mixes[hypo]
+        like = mix[data]
+        return like</pre><p><code>Likelihood</code> uses
+    <code>mixes</code>, which is a
+    dictionary that maps from the name of a bowl to the mix of cookies in the
+    bowl.</p><p>Here’s what the update looks like:</p><pre data-type="programlisting">    pmf.Update('vanilla')</pre><p>And then we can print the posterior probability of each
+    hypothesis:</p><pre data-type="programlisting">    for hypo, prob in pmf.Items():
+        print hypo, prob</pre><p>The result is</p><pre data-type="programlisting">Bowl 1 0.6
+Bowl 2 0.4</pre><p>which is the same as what we got before. This code is more
+    complicated than what we saw in the previous section. One advantage is
+    that it generalizes to the case where we draw more than one cookie from
+    the same bowl (with replacement):</p><pre data-type="programlisting">    dataset = ['vanilla', 'chocolate', 'vanilla']
+    for data in dataset:
+        pmf.Update(data)</pre><p>The other advantage is that it provides a framework for solving many
+    similar problems. In the next section we’ll solve the Monty Hall problem
+    computationally and then see what parts of the framework are the
+    same.</p><p>The code in this section is available from <a href="http://thinkbayes.com/cookie2.py" class="orm:hideurl">http://thinkbayes.com/cookie2.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000001074" data-pdf-bookmark="The Monty Hall problem"><h1>The Monty Hall problem</h1><p>To solve the Monty Hall problem, I’ll define a new class:<a data-type="indexterm" data-primary="Monty Hall problem" id="idp1064208"/></p><pre data-type="programlisting">class Monty(Pmf):
+
+    def __init__(self, hypos):
+        Pmf.__init__(self)
+        for hypo in hypos:
+            self.Set(hypo, 1)
+        self.Normalize()</pre><p>So far <code>Monty</code> and
+    <code>Cookie</code> are exactly the
+    same. And the code that creates the Pmf is the same, too, except for the
+    names of the hypotheses:</p><pre data-type="programlisting">    hypos = 'ABC'
+    pmf = Monty(hypos)</pre><p>Calling <code>Update</code> is
+    pretty much the same:</p><pre data-type="programlisting">    data = 'B'
+    pmf.Update(data)</pre><p>And the implementation of <code>Update</code> is exactly the same:</p><pre data-type="programlisting">    def Update(self, data):
+        for hypo in self.Values():
+            like = self.Likelihood(data, hypo)
+            self.Mult(hypo, like)
+        self.Normalize()</pre><p>The only part that requires some work is <code>Likelihood</code>:</p><pre data-type="programlisting">    def Likelihood(self, data, hypo):
+        if hypo == data:
+            return 0
+        elif hypo == 'A':
+            return 0.5
+        else:
+            return 1</pre><p>Finally, printing the results is the same:</p><pre data-type="programlisting">    for hypo, prob in pmf.Items():
+        print hypo, prob</pre><p>And the answer is</p><pre data-type="programlisting">A 0.333333333333
+B 0.0
+C 0.666666666667</pre><p>In this example, writing <code>Likelihood</code> is a little complicated, but the
+    framework of the Bayesian update is simple. The code in this section is
+    available from <a href="http://thinkbayes.com/monty.py" class="orm:hideurl">http://thinkbayes.com/monty.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000001107" data-pdf-bookmark="Encapsulating the framework"><h1>Encapsulating the framework</h1><p><a data-type="indexterm" data-primary="Suite class" id="idp1076624"/>Now that we see what elements of the framework are the same,
+    we can encapsulate them in an object—a <code>Suite</code> is a <code>Pmf</code> that provides <code>__init__</code>, <code>Update</code>, and <code>Print</code>:</p><pre data-type="programlisting">class Suite(Pmf):
+    """Represents a suite of hypotheses and their probabilities."""
+
+    def __init__(self, hypo=tuple()):
+        """Initializes the distribution."""
+
+    def Update(self, data):
+        """Updates each hypothesis based on the data."""
+
+    def Print(self):
+        """Prints the hypotheses and their probabilities."""</pre><p>The implementation of <code>Suite</code> is in <code>thinkbayes.py</code>. To use <code>Suite</code>, you should write a class that inherits from
+    it and provides <code>Likelihood</code>. For example, here is the solution to
+    the Monty Hall problem rewritten to use <code>Suite</code>:</p><pre data-type="programlisting">from thinkbayes import Suite
+
+class Monty(Suite):
+
+    def Likelihood(self, data, hypo):
+        if hypo == data:
+            return 0
+        elif hypo == 'A':
+            return 0.5
+        else:
+            return 1</pre><p>And here’s the code that uses this class:</p><pre data-type="programlisting">    suite = Monty('ABC')
+    suite.Update('B')
+    suite.Print()</pre><p>You can download this example from <a href="http://thinkbayes.com/monty2.py" class="orm:hideurl">http://thinkbayes.com/monty2.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000001132" data-pdf-bookmark="The M&amp;Mproblem"><h1>The M&amp;Mproblem</h1><p><a data-type="indexterm" data-primary="M and M problem" id="idp1088368"/>We can use the <code>Suite</code> framework to solve the
+    M&amp;Mproblem. Writing the <code>Likelihood</code> function is tricky, but everything else
+    is straightforward.</p><p>First I need to encode the color mixes from before and after
+    1995:</p><pre data-type="programlisting">    mix94 = dict(brown=30,
+                 yellow=20,
+                 red=20,
+                 green=10,
+                 orange=10,
+                 tan=10)
+
+    mix96 = dict(blue=24,
+                 green=20,
+                 orange=16,
+                 yellow=14,
+                 red=13,
+                 brown=13)</pre><p>Then I have to encode the hypotheses:</p><pre data-type="programlisting">    hypoA = dict(bag1=mix94, bag2=mix96)
+    hypoB = dict(bag1=mix96, bag2=mix94)</pre><p><code>hypoA</code> represents the
+    hypothesis that Bag 1 is from 1994 and Bag 2 from 1996. <code>hypoB</code> is the other way
+    around.</p><p>Next I map from the name of the hypothesis to the
+    representation:</p><pre data-type="programlisting">    hypotheses = dict(A=hypoA, B=hypoB)</pre><p>And finally I can write <code>Likelihood</code>. In this case the hypothesis, <code>hypo</code>, is a string, either <code>A</code> or <code>B</code>. The data is a tuple that specifies a bag and a
+    color.</p><pre data-type="programlisting">    def Likelihood(self, data, hypo):
+        bag, color = data
+        mix = self.hypotheses[hypo][bag]
+        like = mix[color]
+        return like</pre><p>Here’s the code that creates the suite and updates it:</p><pre data-type="programlisting">    suite = M_and_M('AB')
+
+    suite.Update(('bag1', 'yellow'))
+    suite.Update(('bag2', 'green'))
+
+    suite.Print()</pre><p>And here’s the result:</p><pre data-type="programlisting">A 0.740740740741
+B 0.259259259259</pre><p>The posterior probability of A is approximately <math xmlns="http://www.w3.org/1998/Math/MathML">
+          <mml:mrow xmlns:mml="http://www.w3.org/1998/Math/MathML">
+            <mml:mn>20</mml:mn>
+
+            <mml:mo>/</mml:mo>
+
+            <mml:mn>27</mml:mn>
+          </mml:mrow>
+        </math>, which is what we got before.</p><p>The code in this section is available from <a href="http://thinkbayes.com/m_and_m.py" class="orm:hideurl">http://thinkbayes.com/m_and_m.py</a>.
+    For more information see <a data-type="xref" href="preface01.html#download">“Working with the code”</a>.</p></section><section data-type="sect1" id="a0000001172" data-pdf-bookmark="Discussion"><h1>Discussion</h1><p>This chapter presents the Suite class, which encapsulates the
+    Bayesian update framework.</p><p><code>Suite</code> is an <strong>abstract type</strong>, which means that it defines the
+    interface a Suite is supposed to have, but does not provide a complete
+    implementation. The <code>Suite</code> interface
+    includes <code>Update</code> and <code>Likelihood</code>, but the <code>Suite</code> class only provides an implementation of
+    <code>Update</code>, not <code>Likelihood</code>.<a data-type="indexterm" data-primary="abstract type" id="idp1106656"/><a data-type="indexterm" data-primary="concrete type" id="idp1109920"/><a data-type="indexterm" data-primary="interface" id="idp1110528"/><a data-type="indexterm" data-primary="implementation" id="idp1111136"/></p><p>A <strong>concrete type</strong> is a class that
+    extends an abstract parent class and provides an implementation of the
+    missing methods. For example, <code>Monty</code>
+    extends <code>Suite</code>, so it inherits <code>Update</code> and provides <code>Likelihood</code>.</p><p>If you are familiar with design patterns, you might recognize this
+    as an example of the template method pattern. You can read about this
+    pattern at <a href="http://en.wikipedia.org/wiki/Template_method_pattern" class="orm:hideurl">http://en.wikipedia.org/wiki/Template_method_pattern</a>.<a data-type="indexterm" data-primary="template method pattern" id="idp1116960"/></p><p>Most of the examples in the following chapters follow the same
+    pattern; for each problem we define a new class that extends <code>Suite</code>, inherits <code>Update</code>, and provides <code>Likelihood</code>. In a few cases we override <code>Update</code>, usually to improve performance.</p></section><section data-type="sect1" id="a0000001214" data-pdf-bookmark="Exercises"><h1>Exercises</h1><div id="a0000001217" class="exercise" data-type="example"><h5/><p>In <a data-type="xref" href="#framework">“The Bayesian framework”</a> I said that the solution to the
+        cookie problem generalizes to the case where we draw multiple cookies
+        with replacement.</p><p>But in the more likely scenario where we eat the cookies we
+        draw, the likelihood of each draw depends on the previous
+        draws.</p><p>Modify the solution in this chapter to handle selection without
+        replacement. Hint: add instance variables to <code>Cookie</code> to represent the hypothetical state
+        of the bowls, and modify <code>Likelihood</code>
+        accordingly. You might want to define a <code>Bowl</code> object.</p></div></section></section>
+  </body>
+</html>
